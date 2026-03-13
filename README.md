@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo-placeholder.png" alt="OpenCroc" width="200" />
+  <img src="assets/banner.png" alt="OpenCroc banner" width="820" />
 </p>
 
 <h1 align="center">OpenCroc</h1>

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-03-13
+
+### Added
+- **Full Orchestration Engine** (`src/orchestrator/index.ts`)
+  - `createOrchestrator(config, options)` — 5-phase pipeline: generate → execute → analyze → heal → report
+  - Per-phase status tracking (success / warn / error / skipped)
+  - Abort-on-error mode with early termination
+  - Token budget management for self-healing phase
+  - Automatic Playwright output parsing for test metrics (passed/failed/skipped/timedOut)
+  - Auto-discovery of generated `.spec.ts` / `.test.ts` files for execution
+- **Orchestration Reporter** (`src/orchestrator/reporter.ts`)
+  - `writeOrchestrationSummary()` — JSON file output with timestamped filenames
+  - `printOrchestrationSummary()` — human-readable console output with phase icons
+  - Strips report content from JSON to prevent massive files
+- **CLI `opencroc run` command** (`src/cli/commands/run.ts`)
+  - Options: `--phases`, `--self-heal`, `--headed`, `--report`, `--token-budget`, `--abort-on-error`
+  - Phase validation with user-friendly error messages
+- New type exports: `PhaseStatus`, `PhaseResult`, `OrchestrationOptions`, `OrchestrationPhase`, `ExecutionMetrics`, `OrchestrationSummary`, `OrchestrationReportOptions`
+- 30 new unit tests covering orchestration engine, reporter, and summary building
+
 ## [0.9.0] - 2026-03-13
 
 ### Added

@@ -103,3 +103,16 @@ export { selectCandidates, selectCandidatesFromLogs, mergeCandidates, waitForLog
 export { createRulesEngine } from './runtime/critical-api-rules.js';
 export type { CandidateApiRequest, LogCompletionResult, LogEntry, LogPollerOptions } from './runtime/log-completion-waiter.js';
 export type { CriticalApiRule, ApiRuleViolation, ApiRecordForRules } from './runtime/critical-api-rules.js';
+
+// --- Orchestration ---
+export { createOrchestrator } from './orchestrator/index.js';
+export { writeOrchestrationSummary, printOrchestrationSummary } from './orchestrator/reporter.js';
+export type {
+  PhaseStatus,
+  PhaseResult,
+  OrchestrationOptions,
+  OrchestrationPhase,
+  ExecutionMetrics,
+  OrchestrationSummary,
+} from './orchestrator/index.js';
+export type { OrchestrationReportOptions } from './orchestrator/reporter.js';

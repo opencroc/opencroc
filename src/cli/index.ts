@@ -7,7 +7,7 @@ const program = new Command();
 program
   .name('opencroc')
   .description('AI-native E2E testing framework')
-  .version('0.9.0');
+  .version('1.0.0');
 
 program
   .command('init')
@@ -101,6 +101,21 @@ program
   .action(async (opts) => {
     const { initRuntime } = await import('./commands/init-runtime.js');
     await initRuntime(opts);
+  });
+
+program
+  .command('run')
+  .description('Full orchestration: generate → execute → analyze → heal → report')
+  .option('-m, --module <name>', 'Run for a specific module')
+  .option('--phases <phases>', 'Phases to run (comma-separated: generate,execute,analyze,heal,report)')
+  .option('--self-heal', 'Enable self-healing on test failures')
+  .option('--headed', 'Run Playwright in headed mode')
+  .option('--report <formats>', 'Report formats (comma-separated)', 'html,json')
+  .option('--token-budget <n>', 'LLM token budget (0 = unlimited)')
+  .option('--abort-on-error', 'Abort pipeline on first phase error')
+  .action(async (opts) => {
+    const { run } = await import('./commands/run.js');
+    await run(opts);
   });
 
 program.parse();

@@ -91,5 +91,11 @@ export {
 // --- VSCode Extension Scaffold ---
 export { COMMANDS as VSCODE_COMMANDS, generateExtensionManifest, generateExtensionEntrypoint, buildModuleTree, buildStatusTree } from './vscode/index.js';
 
-// --- Runtime Infrastructure Generators ---
+// --- Runtime Infrastructure ---
 export { generatePlaywrightConfig, generateGlobalSetup, generateGlobalTeardown, generateAuthSetup } from './runtime/index.js';
+export { resilientFetch, waitForBackend } from './runtime/resilient-fetch.js';
+export { NetworkMonitor } from './runtime/network-monitor.js';
+export { extractParamNames, extractParamsFromHref, buildPath, extractIdFromText, resolveFromSeedData } from './runtime/dynamic-route-resolver.js';
+export type { AttemptRecord, ResilientFetchOptions, ResilientFetchResult } from './runtime/resilient-fetch.js';
+export type { NetworkError, ApiRecord, NetworkMonitorOptions } from './runtime/network-monitor.js';
+export type { ResolvedRoute } from './runtime/dynamic-route-resolver.js';

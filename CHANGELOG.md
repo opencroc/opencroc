@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-03-13
+
+### Added
+- **Resilient Fetch** (`src/runtime/resilient-fetch.ts`) — HTTP client with exponential backoff retry
+  - Retries on network errors, 408, 429, 5xx; skips 4xx
+  - Configurable `maxRetries`, `baseDelayMs`, `timeoutMs`, `throwOnFailure`
+  - `waitForBackend()` helper for health endpoint polling
+- **Network Monitor** (`src/runtime/network-monitor.ts`) — Playwright request/response tracker
+  - `attach(page)` to start recording; configurable `apiPattern`
+  - `getRecords()`, `getErrors()`, `getSlowRequests(ms)`, `get5xxErrors()`, `get4xxErrors()`
+- **Dynamic Route Resolver** (`src/runtime/dynamic-route-resolver.ts`) — path parameter extraction utilities
+  - `extractParamNames()`, `extractParamsFromHref()`, `buildPath()`, `extractIdFromText()`, `resolveFromSeedData()`
+- New type exports: `AttemptRecord`, `ResilientFetchOptions`, `ResilientFetchResult`, `NetworkError`, `ApiRecord`, `NetworkMonitorOptions`, `ResolvedRoute`
+- 27 new unit tests covering all three infrastructure modules
+
 ## [0.7.0] - 2026-03-13
 
 ### Added

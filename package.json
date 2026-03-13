@@ -1,6 +1,6 @@
 {
   "name": "opencroc",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "AI-native E2E testing framework — source-aware test generation, intelligent validation, and self-healing",
   "keywords": [
     "e2e",
@@ -53,7 +53,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^20.11.0",
-    "eslint": "^9.0.0",
+    "eslint": "^10.0.3",
     "globals": "^17.4.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",

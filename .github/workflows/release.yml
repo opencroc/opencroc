@@ -55,7 +55,7 @@ jobs:
             npm-release-${{ runner.os }}-
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Verify build
         run: npm run build

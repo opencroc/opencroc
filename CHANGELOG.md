@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-03-13
+
+### Fixed
+- **CI pipeline fix**: upgraded `eslint` from `^9.0.0` to `^10.0.0` to resolve peer dependency conflict with `@eslint/js@10.0.1` (which requires `eslint@^10.0.0`)
+- Changed CI/Release workflows from `npm install` to `npm ci` for deterministic installs
+
 ## [0.3.0] - 2026-03-13
 
 ### Added
@@ -209,7 +215,8 @@ See individual pre-release entries below for detailed changelogs.
 - GitHub Actions CI (`ci.yml`) with Node 20.x/22.x matrix
 - GitHub Actions release (`release.yml`) with tag-triggered npm publish
 
-[Unreleased]: https://github.com/opencroc/opencroc/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/opencroc/opencroc/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/opencroc/opencroc/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/opencroc/opencroc/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/opencroc/opencroc/compare/v0.2.0-rc.1...v0.2.0
 [0.2.0-rc.1]: https://github.com/opencroc/opencroc/compare/v0.2.0-beta.1...v0.2.0-rc.1

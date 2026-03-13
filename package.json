@@ -1,0 +1,71 @@
+{
+  "name": "opencroc",
+  "version": "0.1.0",
+  "description": "AI-native E2E testing framework — source-aware test generation, intelligent validation, and self-healing",
+  "keywords": [
+    "e2e",
+    "testing",
+    "ai",
+    "playwright",
+    "test-generation",
+    "self-healing",
+    "source-aware"
+  ],
+  "homepage": "https://opencroc.com",
+  "bugs": {
+    "url": "https://github.com/opencroc/opencroc/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/opencroc/opencroc.git"
+  },
+  "license": "MIT",
+  "author": "OpenCroc Contributors",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "opencroc": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "cosmiconfig": "^9.0.0",
+    "glob": "^10.3.10",
+    "ts-morph": "^22.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "eslint": "^9.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": false
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

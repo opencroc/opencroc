@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-14
+
+### Summary
+
+First stable release of the 0.2.x series. Includes all features from alpha/beta/rc pre-releases:
+
+- **ORM Adapters**: Sequelize, TypeORM (`@Entity`/`@Column`/`@ManyToOne` via ts-morph), Prisma (`.prisma` schema parser), adapter registry with auto-detection
+- **LLM Integration**: OpenAI/Zhipu/Ollama providers, token tracking, system prompts, LLM-enhanced failure analysis with heuristic fallback
+- **Real-World Validation**: Tested on production-scale RBAC system — 102 tables, 65 relations, 78 generated test files in ~1.2s
+- **Flat Layout Support**: Pipeline handles both flat (`models/*.ts`) and nested (`models/module/*.ts`) directory structures
+- **Embedded Associations**: Detects `.belongsTo()`/`.hasMany()` calls inside model files without dedicated association files
+
+See individual pre-release entries below for detailed changelogs.
+
 ## [0.2.0-rc.1] - 2026-03-14
 
 ### Added
@@ -161,7 +175,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI (`ci.yml`) with Node 20.x/22.x matrix
 - GitHub Actions release (`release.yml`) with tag-triggered npm publish
 
-[Unreleased]: https://github.com/opencroc/opencroc/compare/v0.2.0-rc.1...HEAD
+[Unreleased]: https://github.com/opencroc/opencroc/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/opencroc/opencroc/compare/v0.2.0-rc.1...v0.2.0
 [0.2.0-rc.1]: https://github.com/opencroc/opencroc/compare/v0.2.0-beta.1...v0.2.0-rc.1
 [0.2.0-beta.1]: https://github.com/opencroc/opencroc/compare/v0.2.0-alpha.1...v0.2.0-beta.1
 [0.2.0-alpha.1]: https://github.com/opencroc/opencroc/compare/v0.1.10...v0.2.0-alpha.1

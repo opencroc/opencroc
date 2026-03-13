@@ -10,9 +10,16 @@ describe('createModelParser', () => {
     expect(typeof parser.parseDirectory).toBe('function');
   });
 
-  it('parseFile rejects with not implemented', async () => {
+  it('parseFile returns null for nonexistent file', async () => {
     const parser = createModelParser();
-    await expect(parser.parseFile('test.ts')).rejects.toThrow('not yet implemented');
+    const result = await parser.parseFile('nonexistent-file.ts');
+    expect(result).toBeNull();
+  });
+
+  it('parseDirectory returns empty array for nonexistent dir', async () => {
+    const parser = createModelParser();
+    const result = await parser.parseDirectory('nonexistent-dir');
+    expect(result).toEqual([]);
   });
 });
 
@@ -23,9 +30,16 @@ describe('createControllerParser', () => {
     expect(typeof parser.parseDirectory).toBe('function');
   });
 
-  it('parseFile rejects with not implemented', async () => {
+  it('parseFile returns empty array for nonexistent file', async () => {
     const parser = createControllerParser();
-    await expect(parser.parseFile('test.ts')).rejects.toThrow('not yet implemented');
+    const result = await parser.parseFile('nonexistent-file.ts');
+    expect(result).toEqual([]);
+  });
+
+  it('parseDirectory returns empty array for nonexistent dir', async () => {
+    const parser = createControllerParser();
+    const result = await parser.parseDirectory('nonexistent-dir');
+    expect(result).toEqual([]);
   });
 });
 
@@ -35,8 +49,9 @@ describe('createAssociationParser', () => {
     expect(typeof parser.parseFile).toBe('function');
   });
 
-  it('parseFile rejects with not implemented', async () => {
+  it('parseFile returns empty array for nonexistent file', async () => {
     const parser = createAssociationParser();
-    await expect(parser.parseFile('test.ts')).rejects.toThrow('not yet implemented');
+    const result = await parser.parseFile('nonexistent-file.ts');
+    expect(result).toEqual([]);
   });
 });

@@ -16,22 +16,38 @@ describe('public API exports', () => {
     expect(typeof api.createAssociationParser).toBe('function');
   });
 
+  it('exports parser standalone functions', () => {
+    expect(typeof api.parseModelFile).toBe('function');
+    expect(typeof api.parseModuleModels).toBe('function');
+    expect(typeof api.parseControllerFile).toBe('function');
+    expect(typeof api.parseControllerDirectory).toBe('function');
+    expect(typeof api.parseAssociationFile).toBe('function');
+    expect(typeof api.buildClassToTableMap).toBe('function');
+    expect(typeof api.classNameToTableName).toBe('function');
+    expect(typeof api.inferRelatedTables).toBe('function');
+  });
+
   it('exports generator factories', () => {
     expect(typeof api.createTestCodeGenerator).toBe('function');
     expect(typeof api.createMockDataGenerator).toBe('function');
     expect(typeof api.createERDiagramGenerator).toBe('function');
   });
 
-  it('exports analyzer factories', () => {
+  it('exports analyzer factories and utilities', () => {
     expect(typeof api.createApiChainAnalyzer).toBe('function');
     expect(typeof api.createImpactReporter).toBe('function');
+    expect(typeof api.inferDependencies).toBe('function');
+    expect(typeof api.buildGraph).toBe('function');
+    expect(typeof api.detectCycles).toBe('function');
+    expect(typeof api.topologicalSort).toBe('function');
   });
 
   it('exports validateConfig', () => {
     expect(typeof api.validateConfig).toBe('function');
   });
 
-  it('exports createSelfHealingLoop', () => {
+  it('exports self-healing', () => {
     expect(typeof api.createSelfHealingLoop).toBe('function');
+    expect(typeof api.categorizeFailure).toBe('function');
   });
 });

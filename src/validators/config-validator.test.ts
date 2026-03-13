@@ -2,19 +2,45 @@ import { describe, it, expect } from 'vitest';
 import { validateConfig } from './config-validator.js';
 
 describe('validateConfig', () => {
-  it('returns an empty array for any input (stub)', () => {
+  it('returns errors for empty config (missing backendRoot)', () => {
     const result = validateConfig({});
+    expect(result.length).toBeGreaterThan(0);
+    expect(result[0].field).toBe('backendRoot');
+    expect(result[0].severity).toBe('error');
+  });
+
+  it('returns empty array for valid config', () => {
+    const result = validateConfig({ backendRoot: './backend' });
     expect(result).toEqual([]);
   });
 
-  it('returns an array', () => {
-    const result = validateConfig({ backendRoot: './backend' });
-    expect(Array.isArray(result)).toBe(true);
+  it('validates invalid adapter', () => {
+    const result = validateConfig({ backendRoot: '.', adapter: 'invalid-orm' });
+    expect(result.some((e) => e.field === 'adapter')).toBe(true);
   });
 
-  it('accepts arbitrary keys without throwing', () => {
-    expect(() =>
-      validateConfig({ unknown: true, nested: { deep: 1 } }),
-    ).not.toThrow();
+  it('validates invalid pipeline step', () => {
+    const result = validateConfig({ backendRoot: '.', steps: ['scan', 'invalid-step'] });
+    expect(result.some((e) => e.field === 'steps')).toBe(true);
+  });
+
+  it('validates invalid LLM provider', () => {
+    const result = validateConfig({ backendRoot: '.', llm: { provider: 'invalid' } });
+    expect(result.some((e) => e.field === 'llm.provider')).toBe(true);
+  });
+
+  it('warns when LLM apiKey is missing for cloud provider', () => {
+    const result = validateConfig({ backendRoot: '.', llm: { provider: 'openai' } });
+    expect(result.some((e) => e.field === 'llm.apiKey' && e.severity === 'warning')).toBe(true);
+  });
+
+  it('validates invalid report format', () => {
+    const result = validateConfig({ backendRoot: '.', report: { format: ['pdf'] } });
+    expect(result.some((e) => e.field === 'report.format')).toBe(true);
+  });
+
+  it('validates invalid self-healing mode', () => {
+    const result = validateConfig({ backendRoot: '.', selfHealing: { mode: 'invalid' } });
+    expect(result.some((e) => e.field === 'selfHealing.mode')).toBe(true);
   });
 });

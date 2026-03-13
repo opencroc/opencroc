@@ -75,6 +75,12 @@ export interface ModuleDefinition {
   modelDir: string;
   controllerDir: string;
   associationFile?: string;
+  /** Controller file paths (resolved) */
+  controllerPaths?: string[];
+  /** Service file paths (for inferring related tables) */
+  servicePaths?: string[];
+  /** Table name prefix for this module (e.g. 'user_') */
+  tablePrefix?: string;
 }
 
 export interface RouteEntry {
@@ -96,7 +102,7 @@ export interface FieldSchema {
 
 export interface TableSchema {
   tableName: string;
-  className: string;
+  className?: string;
   fields: FieldSchema[];
   indexes?: IndexSchema[];
 }
@@ -109,25 +115,44 @@ export interface IndexSchema {
 
 export interface ForeignKeyRelation {
   sourceTable: string;
+  sourceField: string;
   targetTable: string;
-  sourceColumn: string;
-  targetColumn: string;
-  type: 'belongsTo' | 'hasMany' | 'hasOne' | 'belongsToMany';
+  targetField: string;
+  cardinality: '1:N' | 'N:1' | '1:1';
+  isCrossModule?: boolean;
 }
 
 export interface ApiEndpoint {
   method: string;
   path: string;
-  handler: string;
-  module: string;
-  params?: string[];
-  bodyFields?: string[];
+  pathParams: string[];
+  queryParams: string[];
+  bodyFields: string[];
+  responseFields: string[];
+  relatedTables: string[];
+  description: string;
 }
 
 export interface ApiDependency {
   from: ApiEndpoint;
   to: ApiEndpoint;
-  reason: string;
+  paramMapping: Record<string, string>;
+}
+
+// ===== Graph Types =====
+
+export interface DirectedAcyclicGraph {
+  nodes: string[];
+  edges: Array<{ from: string; to: string; label?: string }>;
+}
+
+export interface ApiChainAnalysisResult {
+  moduleName: string;
+  endpoints: ApiEndpoint[];
+  dependencies: ApiDependency[];
+  dag: DirectedAcyclicGraph;
+  hasCycles: boolean;
+  cycleWarnings: string[];
 }
 
 // ===== Pipeline Result Types =====
@@ -178,13 +203,18 @@ export interface ChainFailureResult {
   failedStep: number;
   error: string;
   rootCause?: string;
+  category?: string;
+  confidence?: number;
   impactedChains: string[];
+  errorChainPath?: string;
 }
 
 export interface ImpactReport {
   affectedModules: string[];
   affectedChains: string[];
   affectedEndpoints: ApiEndpoint[];
+  affectedTables: string[];
+  severity: 'critical' | 'high' | 'medium' | 'low';
   mermaidText: string;
 }
 
@@ -193,6 +223,22 @@ export interface ValidationError {
   field: string;
   message: string;
   severity: 'error' | 'warning';
+}
+
+// ===== Self-Healing Types =====
+
+export interface SelfHealingResult {
+  iterations: number;
+  fixed: string[];
+  remaining: string[];
+  totalTokensUsed: number;
+}
+
+export interface FixOutcome {
+  success: boolean;
+  scope: 'config-only' | 'config-and-source';
+  fixedItems: string[];
+  rolledBack: boolean;
 }
 
 // ===== Adapter Types =====

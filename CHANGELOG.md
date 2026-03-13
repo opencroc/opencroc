@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-03-14
+
+### Added
+- Interactive `opencroc init` command with prompts for backend root, ORM adapter (sequelize/typeorm/prisma), LLM provider (openai/zhipu/ollama/none), and output directory
+- `--yes` / `-y` flag for non-interactive init with sensible defaults
+- `buildConfigContent()` exported for programmatic config generation
+- 5 unit tests for config content generation
+
+### Changed
+- CLI version bumped from 0.1.0 to 0.1.8
+
 ## [0.1.7] - 2026-03-13
 
 ### Added

@@ -7,14 +7,15 @@ const program = new Command();
 program
   .name('opencroc')
   .description('AI-native E2E testing framework')
-  .version('0.1.0');
+  .version('0.1.8');
 
 program
   .command('init')
   .description('Initialize OpenCroc in the current project')
-  .action(async () => {
+  .option('-y, --yes', 'Skip prompts and use defaults')
+  .action(async (opts) => {
     const { initProject } = await import('./commands/init.js');
-    await initProject();
+    await initProject(opts);
   });
 
 program

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-03-13
+
+### Added
+- **Checklist Reporter** (`src/reporters/checklist-reporter.ts`)
+  - `classifyFailure()` — categorize errors into 7 types (backend-5xx, mixed-5xx, slow-api, log-fail, log-timeout, frontend-load, other)
+  - `buildFailureSummary()` — aggregate failure counts by category
+  - `aggregateLogCompletion()` — cross-test log completion stats with timedOut Top 5
+  - `buildBackendChecklist()` — group 5xx failures by API domain with affected tests/endpoints
+  - `renderChecklistMarkdown()` — Markdown output with summary, top 5 table, and domain sections
+- **Workorder Reporter** (`src/reporters/workorder-reporter.ts`)
+  - `buildWorkorders()` — auto-priority assignment (P0/P1/P2) with acceptance criteria
+  - Auto P0 workorder when log completion match rate < 90%
+  - `renderWorkordersMarkdown()` — structured Markdown work order output
+- **Token Usage Reporter** (`src/reporters/token-reporter.ts`)
+  - `TokenTracker` class — record entries, track budget, generate summary
+  - Aggregation by category and by model with cost estimation
+  - Budget tracking with exceeded detection
+  - `renderTokenReportMarkdown()` — Markdown report with category/model tables
+- New types: `FailureCategory`, `TestResultRecord`, `LogCompletionRecord`, `FailureSummary`,
+  `BackendDomainItem`, `LogCompletionSummary`, `WorkorderItem`, `TokenUsageEntry`, `TokenUsageSummary`
+- 42 new tests (356 total, 30 files)
+
 ## [1.1.0] - 2026-03-13
 
 ### Added

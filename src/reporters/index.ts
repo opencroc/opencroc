@@ -270,3 +270,24 @@ export function generateReports(
     return gen(result);
   });
 }
+
+// ===== Advanced Reporters (v1.2) =====
+export {
+  classifyFailure,
+  buildFailureSummary,
+  aggregateLogCompletion,
+  parseApiDomain,
+  buildBackendChecklist,
+  renderChecklistMarkdown,
+} from './checklist-reporter.js';
+
+export {
+  buildWorkorders,
+  renderWorkordersMarkdown,
+} from './workorder-reporter.js';
+export type { BuildWorkordersOptions } from './workorder-reporter.js';
+
+export {
+  TokenTracker,
+  renderTokenReportMarkdown,
+} from './token-reporter.js';

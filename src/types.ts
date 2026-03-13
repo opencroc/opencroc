@@ -378,6 +378,84 @@ export interface AutoFixPRResult {
   patchFile: string;
 }
 
+// ===== Advanced Reporter Types (v1.2) =====
+
+export type FailureCategory = 'backend-5xx' | 'mixed-5xx' | 'slow-api' | 'log-fail' | 'log-timeout' | 'frontend-load' | 'other';
+
+export interface TestResultRecord {
+  title: string;
+  status: 'passed' | 'failed' | 'skipped' | 'timedOut';
+  duration: number;
+  error?: string;
+  logCompletion?: LogCompletionRecord;
+}
+
+export interface LogCompletionRecord {
+  candidateCount: number;
+  succeeded: Array<{ method: string; path: string }>;
+  failed: Array<{ method: string; path: string }>;
+  timedOut: Array<{ method: string; path: string }>;
+}
+
+export interface FailureSummary {
+  totalFailed: number;
+  backend5xx: number;
+  mixed5xx: number;
+  slowApi: number;
+  logFail: number;
+  logTimeout: number;
+  frontendLoad: number;
+  other: number;
+}
+
+export interface BackendDomainItem {
+  domain: string;
+  tests: string[];
+  endpoints: string[];
+}
+
+export interface LogCompletionSummary {
+  totalCandidates: number;
+  succeeded: number;
+  failed: number;
+  timedOut: number;
+  matchRate: number;
+  effectiveRate: number;
+  timedOutTop5: Array<{ method: string; path: string; occurrences: number }>;
+}
+
+export interface WorkorderItem {
+  index: number;
+  domain: string;
+  priority: 'P0' | 'P1' | 'P2';
+  tests: string[];
+  endpoints: string[];
+  objective: string;
+  acceptanceCriteria: string[];
+}
+
+export interface TokenUsageEntry {
+  category: string;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  latencyMs: number;
+  estimatedCost: number;
+}
+
+export interface TokenUsageSummary {
+  totalRequests: number;
+  totalTokens: number;
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalEstimatedCost: number;
+  avgLatencyMs: number;
+  byCategory: Record<string, { requests: number; promptTokens: number; completionTokens: number; totalTokens: number; estimatedCost: number }>;
+  byModel: Record<string, { requests: number; totalTokens: number; estimatedCost: number }>;
+  budgetUsedPercent: number | null;
+  budgetExceeded: boolean;
+}
+
 // ===== Adapter Types =====
 
 export interface BackendAdapter {

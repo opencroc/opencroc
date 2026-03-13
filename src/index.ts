@@ -39,6 +39,15 @@ export type {
   AIAttributionResult,
   AutoFixPROptions,
   AutoFixPRResult,
+  FailureCategory,
+  TestResultRecord,
+  LogCompletionRecord,
+  FailureSummary,
+  BackendDomainItem,
+  LogCompletionSummary,
+  WorkorderItem,
+  TokenUsageEntry,
+  TokenUsageSummary,
 } from './types.js';
 
 // --- Config ---
@@ -92,8 +101,11 @@ export { createPluginRegistry, definePlugin } from './plugins/index.js';
 export { generateCiTemplate, listCiPlatforms, generateGitHubActionsTemplate, generateGitLabCITemplate } from './ci/index.js';
 
 // --- Reporters ---
-export type { ReportOutput } from './reporters/index.js';
+export type { ReportOutput, BuildWorkordersOptions } from './reporters/index.js';
 export { generateReports, generateHtmlReport, generateJsonReport, generateMarkdownReport } from './reporters/index.js';
+export { classifyFailure, buildFailureSummary, aggregateLogCompletion, parseApiDomain, buildBackendChecklist, renderChecklistMarkdown } from './reporters/index.js';
+export { buildWorkorders, renderWorkordersMarkdown } from './reporters/index.js';
+export { TokenTracker, renderTokenReportMarkdown } from './reporters/index.js';
 
 // --- Visual Dashboard ---
 export type { DashboardData, DashboardOutput } from './dashboard/index.js';

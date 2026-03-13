@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-03-13
+
+### Added
+- `opencroc generate` command — full pipeline execution from CLI
+  - `--module <name>` filter for single-module generation
+  - `--steps <steps>` to run specific pipeline steps (comma-separated)
+  - `--dry-run` mode to preview generated files without writing
+  - Summary output with module count, ER diagrams, chain plans, errors/warnings
+- Config loader (`src/cli/load-config.ts`) — cosmiconfig-based config discovery
+  - Searches `opencroc.config.{ts,js,json}`, `.opencrocrc.json`, `package.json`
+  - Validates `backendRoot` presence
+- 8 new unit tests (load-config: 3, generate command: 5)
+
+### Changed
+- CLI version bumped to 0.1.9
+
 ## [0.1.8] - 2026-03-14
 
 ### Added

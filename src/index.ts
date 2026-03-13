@@ -99,3 +99,7 @@ export { extractParamNames, extractParamsFromHref, buildPath, extractIdFromText,
 export type { AttemptRecord, ResilientFetchOptions, ResilientFetchResult } from './runtime/resilient-fetch.js';
 export type { NetworkError, ApiRecord, NetworkMonitorOptions } from './runtime/network-monitor.js';
 export type { ResolvedRoute } from './runtime/dynamic-route-resolver.js';
+export { selectCandidates, selectCandidatesFromLogs, mergeCandidates, waitForLogCompletion } from './runtime/log-completion-waiter.js';
+export { createRulesEngine } from './runtime/critical-api-rules.js';
+export type { CandidateApiRequest, LogCompletionResult, LogEntry, LogPollerOptions } from './runtime/log-completion-waiter.js';
+export type { CriticalApiRule, ApiRuleViolation, ApiRecordForRules } from './runtime/critical-api-rules.js';

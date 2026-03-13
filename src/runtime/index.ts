@@ -11,3 +11,10 @@ export {
   extractIdFromText,
   resolveFromSeedData,
 } from './dynamic-route-resolver.js';
+export {
+  selectCandidates,
+  selectCandidatesFromLogs,
+  mergeCandidates,
+  waitForLogCompletion,
+} from './log-completion-waiter.js';
+export { createRulesEngine } from './critical-api-rules.js';

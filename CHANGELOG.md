@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-13
+
+### Added
+- **Log-Driven Completion Detection** (`src/runtime/log-completion-waiter.ts`)
+  - `selectCandidates()` / `selectCandidatesFromLogs()` / `mergeCandidates()` — candidate API request selection and deduplication
+  - `waitForLogCompletion()` — poll backend logs with progressive backoff to verify API requests completed (not just HTTP 200)
+  - Supports matching by `requestId` or `method+path`; infers success/failure from `eventStatus` or HTTP status code
+- **Critical API Rules Engine** (`src/runtime/critical-api-rules.ts`)
+  - `createRulesEngine(rules)` — evaluate API records against per-endpoint rules
+  - Performance thresholds: `warnMs` / `fatalMs` timing violations
+  - Empty response detection with `allowEmpty` flag
+  - `evaluate()`, `evaluateAll()`, `summarize()` for violation analysis
+- New type exports: `CandidateApiRequest`, `LogCompletionResult`, `LogEntry`, `LogPollerOptions`, `CriticalApiRule`, `ApiRuleViolation`, `ApiRecordForRules`
+- 22 new unit tests covering log completion polling and rules engine evaluation
+
 ## [0.8.0] - 2026-03-13
 
 ### Added

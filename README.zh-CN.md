@@ -297,6 +297,29 @@ export default defineConfig({
 - [x] Visual dashboard (opencroc.com)
 - [x] Drizzle ORM adapter
 
+## 发布快照
+
+- 当前稳定版本：`0.6.1`
+- npm `latest` 标签：`0.6.1`
+- Roadmap 状态：已全部完成
+- 全量质量门禁：Windows 下 23 个测试文件 / 184 个测试稳定通过
+
+### 版本节奏
+
+- `0.3.x`：插件系统、CI 模板、报告系统、VS Code 脚手架、CI 稳定化
+- `0.4.x`：NestJS 控制器解析
+- `0.5.x`：Drizzle ORM 适配器
+- `0.6.x`：可视化 dashboard 与 Windows 下 Vitest 稳定性收口
+
+### 发布验证
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm view opencroc version dist-tags --json
+```
+
 ## 文档
 
 访问 **[opencroc.com](https://opencroc.com)** 查看完整文档，或阅读：

@@ -297,6 +297,29 @@ export default defineConfig({
 - [x] Visual dashboard (opencroc.com)
 - [x] Drizzle ORM adapter
 
+## Release Snapshot
+
+- Current stable release: `0.6.1`
+- npm dist-tag `latest`: `0.6.1`
+- Roadmap status: fully completed
+- Full-suite quality gate: 23 test files / 184 tests passing on Windows with stable Vitest config
+
+### Version Rhythm
+
+- `0.3.x`: plugin system, CI templates, reporters, VS Code scaffold, CI hardening
+- `0.4.x`: NestJS controller parser
+- `0.5.x`: Drizzle ORM adapter
+- `0.6.x`: visual dashboard + Windows Vitest stability hardening
+
+### Release Verification
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm view opencroc version dist-tags --json
+```
+
 ## Documentation
 
 Visit **[opencroc.com](https://opencroc.com)** for full documentation, or browse:

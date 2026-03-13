@@ -1,6 +1,6 @@
 {
   "name": "opencroc",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "AI-native E2E testing framework — source-aware test generation, intelligent validation, and self-healing",
   "keywords": [
     "e2e",
@@ -37,9 +37,10 @@
     "dev": "tsup --watch",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test": "vitest run --config vitest.config.ts",
+    "test:stable": "vitest run --config vitest.config.ts",
+    "test:watch": "vitest --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },

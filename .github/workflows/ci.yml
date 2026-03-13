@@ -23,7 +23,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: opencroc
+        working-directory: .
 
     steps:
       - name: Checkout
@@ -38,7 +38,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.npm
-          key: npm-${{ runner.os }}-${{ matrix.node-version }}-${{ hashFiles('opencroc/package.json') }}
+          key: npm-${{ runner.os }}-${{ matrix.node-version }}-${{ hashFiles('package.json') }}
           restore-keys: |
             npm-${{ runner.os }}-${{ matrix.node-version }}-
 

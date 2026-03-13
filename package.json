@@ -1,6 +1,6 @@
 {
   "name": "opencroc",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "AI-native E2E testing framework — source-aware test generation, intelligent validation, and self-healing",
   "keywords": [
     "e2e",

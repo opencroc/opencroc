@@ -86,4 +86,75 @@ describe('test command', () => {
     expect(testFiles).toHaveLength(1);
     expect(testFiles[0]).toContain('users');
   });
+
+  it('runs setup/auth/teardown hooks from config', async () => {
+    mkdirSync(TMP, { recursive: true });
+    writeFileSync(join(TMP, 'auth.spec.ts'), '// test', 'utf-8');
+
+    mockedLoadConfig.mockResolvedValue({
+      config: {
+        backendRoot: './backend',
+        outDir: TMP,
+        execution: {
+          setupHook: 'echo setup',
+          authHook: { command: 'node', args: ['scripts/auth.js'] },
+          teardownHook: 'echo teardown',
+        },
+      },
+      filepath: '/fake/config.json',
+    });
+
+    await runTests({});
+
+    const calls = mockedExecFileSync.mock.calls.map((c) => c[0]);
+    expect(calls.some((cmd) => String(cmd).includes('cmd.exe') || String(cmd).includes('sh'))).toBe(true);
+    expect(calls.some((cmd) => String(cmd).includes('node'))).toBe(true);
+    expect(calls.some((cmd) => String(cmd).includes('npx'))).toBe(true);
+  });
+
+  it('uses CLI hook overrides', async () => {
+    mkdirSync(TMP, { recursive: true });
+    writeFileSync(join(TMP, 'auth.spec.ts'), '// test', 'utf-8');
+
+    await runTests({
+      setupHook: 'echo cli-setup',
+      authHook: 'echo cli-auth',
+      teardownHook: 'echo cli-teardown',
+    });
+
+    const shellCalls = mockedExecFileSync.mock.calls.filter((c) => String(c[0]).includes('cmd') || String(c[0]).includes('sh'));
+    expect(shellCalls.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('aborts test execution when setup hook fails', async () => {
+    mkdirSync(TMP, { recursive: true });
+    writeFileSync(join(TMP, 'auth.spec.ts'), '// test', 'utf-8');
+
+    mockedLoadConfig.mockResolvedValue({
+      config: {
+        backendRoot: './backend',
+        outDir: TMP,
+        execution: {
+          setupHook: 'echo setup',
+          teardownHook: 'echo teardown',
+        },
+      },
+      filepath: '/fake/config.json',
+    });
+
+    mockedExecFileSync.mockImplementation((cmd: unknown, args: unknown[]) => {
+      if ((String(cmd).includes('cmd') || String(cmd).includes('sh')) && String(args?.[args.length - 1] || '').includes('echo setup')) {
+        throw new Error('setup failed');
+      }
+      return undefined;
+    });
+
+    const codeBefore = process.exitCode;
+    await runTests({});
+    expect(process.exitCode).toBe(1);
+
+    const npxCalls = mockedExecFileSync.mock.calls.filter((c) => String(c[0]).includes('npx'));
+    expect(npxCalls).toHaveLength(0);
+    process.exitCode = codeBefore;
+  });
 });

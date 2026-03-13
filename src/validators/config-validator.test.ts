@@ -43,4 +43,29 @@ describe('validateConfig', () => {
     const result = validateConfig({ backendRoot: '.', selfHealing: { mode: 'invalid' } });
     expect(result.some((e) => e.field === 'selfHealing.mode')).toBe(true);
   });
+
+  it('accepts drizzle adapter', () => {
+    const result = validateConfig({ backendRoot: '.', adapter: 'drizzle' });
+    expect(result.some((e) => e.field === 'adapter')).toBe(false);
+  });
+
+  it('validates invalid execution hook shape', () => {
+    const result = validateConfig({
+      backendRoot: '.',
+      execution: { setupHook: { args: ['node'] } },
+    });
+    expect(result.some((e) => e.field === 'execution.setupHook.command')).toBe(true);
+  });
+
+  it('accepts string/object execution hooks', () => {
+    const result = validateConfig({
+      backendRoot: '.',
+      execution: {
+        setupHook: 'npm run e2e:setup',
+        authHook: { command: 'node', args: ['scripts/auth.js'] },
+        teardownHook: { command: 'npm', args: ['run', 'e2e:cleanup'], cwd: '.' },
+      },
+    });
+    expect(result.some((e) => e.field.startsWith('execution.'))).toBe(false);
+  });
 });

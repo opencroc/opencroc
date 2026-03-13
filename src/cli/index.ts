@@ -35,6 +35,9 @@ program
   .description('Run generated E2E tests')
   .option('-m, --module <name>', 'Run tests for a specific module')
   .option('--headed', 'Run in headed browser mode')
+  .option('--setup-hook <cmd>', 'Run setup hook command before test execution')
+  .option('--auth-hook <cmd>', 'Run auth hook command before test execution')
+  .option('--teardown-hook <cmd>', 'Run teardown hook command after test execution')
   .action(async (opts) => {
     const { runTests } = await import('./commands/test.js');
     await runTests(opts);

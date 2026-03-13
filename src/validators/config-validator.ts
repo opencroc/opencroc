@@ -2,7 +2,7 @@ import type { ValidationError } from '../types.js';
 
 const REQUIRED_FIELDS = ['backendRoot'];
 
-const VALID_ADAPTERS = ['sequelize', 'typeorm', 'prisma'];
+const VALID_ADAPTERS = ['sequelize', 'typeorm', 'prisma', 'drizzle'];
 const VALID_STEPS = ['scan', 'er-diagram', 'api-chain', 'plan', 'codegen', 'validate'];
 const VALID_LLM_PROVIDERS = ['openai', 'zhipu', 'ollama', 'custom'];
 const VALID_REPORT_FORMATS = ['html', 'json', 'markdown'];
@@ -119,6 +119,57 @@ export function validateConfig(config: Record<string, unknown>): ValidationError
         message: 'maxIterations must be a positive number',
         severity: 'error',
       });
+    }
+  }
+
+  // Execution hooks validation
+  if (config.execution && typeof config.execution === 'object') {
+    const execution = config.execution as Record<string, unknown>;
+    const hookFields = ['setupHook', 'authHook', 'teardownHook'];
+
+    for (const hookField of hookFields) {
+      const hook = execution[hookField];
+      if (hook === undefined) continue;
+
+      if (typeof hook === 'string') continue;
+
+      if (typeof hook !== 'object' || hook === null) {
+        errors.push({
+          module: 'config',
+          field: `execution.${hookField}`,
+          message: `${hookField} must be a string command or an object { command, args?, cwd? }`,
+          severity: 'error',
+        });
+        continue;
+      }
+
+      const hookObj = hook as Record<string, unknown>;
+      if (typeof hookObj.command !== 'string' || hookObj.command.trim() === '') {
+        errors.push({
+          module: 'config',
+          field: `execution.${hookField}.command`,
+          message: 'command is required and must be a non-empty string',
+          severity: 'error',
+        });
+      }
+
+      if (hookObj.args !== undefined && (!Array.isArray(hookObj.args) || hookObj.args.some((a) => typeof a !== 'string'))) {
+        errors.push({
+          module: 'config',
+          field: `execution.${hookField}.args`,
+          message: 'args must be an array of strings',
+          severity: 'error',
+        });
+      }
+
+      if (hookObj.cwd !== undefined && typeof hookObj.cwd !== 'string') {
+        errors.push({
+          module: 'config',
+          field: `execution.${hookField}.cwd`,
+          message: 'cwd must be a string path',
+          severity: 'error',
+        });
+      }
     }
   }
 

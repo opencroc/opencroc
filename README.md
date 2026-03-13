@@ -86,8 +86,11 @@ npx opencroc test
 # Run specific module
 npx opencroc test --module=knowledge-base
 
-# Run with self-healing enabled
-npx opencroc test --self-heal
+# Run in headed browser mode
+npx opencroc test --headed
+
+# Override lifecycle hooks from CLI
+npx opencroc test --setup-hook="npm run e2e:setup" --auth-hook="node scripts/auth.js" --teardown-hook="npm run e2e:cleanup"
 ```
 
 ### Validate AI Configs

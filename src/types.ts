@@ -25,6 +25,9 @@ export interface OpenCrocConfig {
   /** Self-healing configuration */
   selfHealing?: SelfHealingConfig;
 
+  /** Test execution hooks (setup/auth/teardown) */
+  execution?: ExecutionConfig;
+
   /** Report configuration */
   report?: ReportConfig;
 }
@@ -52,6 +55,20 @@ export interface SelfHealingConfig {
   enabled?: boolean;
   maxIterations?: number;
   mode?: 'config-only' | 'config-and-source';
+}
+
+export type HookConfig =
+  | string
+  | {
+      command: string;
+      args?: string[];
+      cwd?: string;
+    };
+
+export interface ExecutionConfig {
+  setupHook?: HookConfig;
+  authHook?: HookConfig;
+  teardownHook?: HookConfig;
 }
 
 export interface ReportConfig {

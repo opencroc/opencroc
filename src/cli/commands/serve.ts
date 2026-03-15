@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import { loadConfig } from '../load-config.js';
+import type { OpenCrocConfig } from '../../types.js';
 
 export interface ServeCommandOptions {
   port?: string;
@@ -8,28 +9,34 @@ export interface ServeCommandOptions {
 }
 
 export async function serve(opts: ServeCommandOptions): Promise<void> {
-  let loaded;
+  let config: OpenCrocConfig;
+  let configPath: string;
+
   try {
-    loaded = await loadConfig();
+    const loaded = await loadConfig();
+    config = loaded.config;
+    configPath = loaded.filepath;
   } catch {
-    console.error(chalk.red('No opencroc config found. Run `opencroc init` first.'));
-    process.exitCode = 1;
-    return;
+    // No config file — use sensible defaults based on cwd
+    config = { backendRoot: '.' };
+    configPath = '(auto-detected)';
+    console.log(chalk.yellow('⚠ No opencroc config found, using current directory as backend root.'));
+    console.log(chalk.gray('  Tip: run `opencroc init` to create a config file.\n'));
   }
 
   const port = parseInt(opts.port || '8765', 10);
   const host = opts.host || 'localhost';
 
   console.log(chalk.cyan('🐊 Starting OpenCroc Studio...'));
-  console.log(chalk.gray(`   Config: ${loaded.filepath}`));
-  console.log(chalk.gray(`   Backend: ${loaded.config.backendRoot}`));
+  console.log(chalk.gray(`   Config: ${configPath}`));
+  console.log(chalk.gray(`   Backend: ${config.backendRoot}`));
 
   const { startServer } = await import('../../server/index.js');
   await startServer({
     port,
     host,
     open: opts.open ?? true,
-    config: loaded.config,
+    config,
     cwd: process.cwd(),
   });
 }

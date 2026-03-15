@@ -36,14 +36,32 @@ export function createPipeline(config: OpenCrocConfig): Pipeline {
         duration: 0,
       };
 
+      const backendRoot = path.resolve(config.backendRoot);
+
+      // Smart discovery: find models/ and controllers/ in common locations
+      const findDir = (name: string): string | null => {
+        const candidates = [
+          path.join(backendRoot, name),                   // ./models
+          path.join(backendRoot, 'src', name),             // ./src/models
+          path.join(backendRoot, 'backend', 'src', name),  // ./backend/src/models
+          path.join(backendRoot, 'backend', name),         // ./backend/models
+          path.join(backendRoot, 'server', 'src', name),   // ./server/src/models
+          path.join(backendRoot, 'app', name),             // ./app/models
+        ];
+        for (const c of candidates) {
+          if (fs.existsSync(c)) return c;
+        }
+        return null;
+      };
+
+      const modelsRoot = findDir('models');
+      const controllersRoot = findDir('controllers');
+
       // Step 1: Scan — discover modules
       if (activeSteps.includes('scan')) {
-        const backendRoot = path.resolve(config.backendRoot);
-        const modelsDir = path.join(backendRoot, 'models');
-
-        if (fs.existsSync(modelsDir)) {
+        if (modelsRoot) {
           // Discover modules from subdirectories
-          const dirs = fs.readdirSync(modelsDir, { withFileTypes: true })
+          const dirs = fs.readdirSync(modelsRoot, { withFileTypes: true })
             .filter((d) => d.isDirectory())
             .map((d) => d.name);
 
@@ -58,7 +76,7 @@ export function createPipeline(config: OpenCrocConfig): Pipeline {
             result.modules.push('default');
           } else {
             // Also include root-level model files as "default" module
-            const rootFiles = fs.readdirSync(modelsDir)
+            const rootFiles = fs.readdirSync(modelsRoot)
               .filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && f !== 'index.ts');
             if (rootFiles.length > 0) {
               result.modules.unshift('default');
@@ -68,16 +86,16 @@ export function createPipeline(config: OpenCrocConfig): Pipeline {
       }
 
       // Helper: resolve model dir for a module
-      const resolveModelDir = (backendRoot: string, mod: string): string =>
+      const resolveModelDir = (_backendRoot: string, mod: string): string =>
         mod === 'default'
-          ? path.join(backendRoot, 'models')
-          : path.join(backendRoot, 'models', mod);
+          ? (modelsRoot || path.join(backendRoot, 'models'))
+          : path.join(modelsRoot || path.join(backendRoot, 'models'), mod);
 
       // Helper: resolve controller dir for a module
-      const resolveControllerDir = (backendRoot: string, mod: string): string =>
+      const resolveControllerDir = (_backendRoot: string, mod: string): string =>
         mod === 'default'
-          ? path.join(backendRoot, 'controllers')
-          : path.join(backendRoot, 'controllers', mod);
+          ? (controllersRoot || path.join(backendRoot, 'controllers'))
+          : path.join(controllersRoot || path.join(backendRoot, 'controllers'), mod);
 
       // Step 2: ER Diagram — parse models and generate relationship graphs
       if (activeSteps.includes('er-diagram')) {

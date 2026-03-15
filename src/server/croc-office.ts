@@ -174,7 +174,7 @@ export class CrocOffice {
 
       // Phase 1: Scan + ER Diagram (解析鳄)
       this.updateAgent('parser-croc', { status: 'working', currentTask: 'Scanning source code...', progress: 10 });
-      this.log('🐊 解析鳄 is scanning source code...');
+      this.log(`🐊 解析鳄 scanning from: ${backendRoot}`);
       this.invalidateCache();
       await this.buildKnowledgeGraph();
       this.updateNodeStatus('module', 'testing');

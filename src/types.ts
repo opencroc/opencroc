@@ -456,6 +456,132 @@ export interface TokenUsageSummary {
   budgetExceeded: boolean;
 }
 
+// ===== Module Test Config (AI-Generated) =====
+
+export interface ModuleTestConfig {
+  moduleName: string;
+  version: string;
+  generatedAt: string;
+  bodyTemplates: Record<string, Record<string, unknown>>;
+  paramRewrites: Record<string, Record<string, string>>;
+  idAliases: Array<{ pathPattern: string; alias: string }>;
+  specialUrls: Record<string, string>;
+  seed: SeedStep[];
+}
+
+export interface SeedStep {
+  step: number;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  path: string;
+  body?: Record<string, unknown>;
+  captureAs?: string;
+  required: boolean;
+  dependsOn?: string[];
+  failureMessage?: string;
+}
+
+// ===== Module Config Validation =====
+
+export type ModuleConfigErrorType =
+  | 'missing-field' | 'invalid-type' | 'invalid-format'
+  | 'interface-not-found' | 'field-missing' | 'type-mismatch'
+  | 'dependency-cycle' | 'dependency-missing' | 'seed-order-invalid'
+  | 'param-mapping-invalid' | 'compile-error' | 'unknown';
+
+export interface ModuleConfigValidationError {
+  layer: 'schema' | 'semantic' | 'dryrun';
+  type: ModuleConfigErrorType;
+  path: string;
+  message: string;
+  suggestion?: string;
+}
+
+export interface ModuleConfigValidationWarning {
+  layer: 'schema' | 'semantic' | 'dryrun';
+  path: string;
+  message: string;
+}
+
+export interface LayerValidationResult {
+  passed: boolean;
+  layer: 'schema' | 'semantic' | 'dryrun';
+  errors: ModuleConfigValidationError[];
+  warnings: ModuleConfigValidationWarning[];
+}
+
+export interface ModuleConfigValidationResult {
+  passed: boolean;
+  lastPassedLayer?: 'schema' | 'semantic' | 'dryrun';
+  failedAtLayer?: 'schema' | 'semantic' | 'dryrun';
+  schemaResult?: LayerValidationResult;
+  semanticResult?: LayerValidationResult;
+  dryrunResult?: LayerValidationResult;
+  errors: ModuleConfigValidationError[];
+  warnings: ModuleConfigValidationWarning[];
+}
+
+/** DTO (TypeScript interface) information */
+export interface DTOInfo {
+  name: string;
+  sourcePath?: string;
+  fields: DTOFieldInfo[];
+  extends?: string;
+}
+
+export interface DTOFieldInfo {
+  name: string;
+  type: string;
+  required: boolean;
+  enumValues?: string[];
+  isSystemField?: boolean;
+}
+
+/** express-validator rule */
+export interface ValidatorRule {
+  field: string;
+  source: 'body' | 'param' | 'query';
+  rules: string[];
+}
+
+/** Module metadata from DTO scanning */
+export interface ModuleMetadata {
+  moduleName: string;
+  dtos: DTOInfo[];
+  validatorRules: Map<string, ValidatorRule[]>;
+  timestamp: string;
+}
+
+export interface ModuleConfigValidationContext {
+  endpoints: ApiEndpoint[];
+  dtos: DTOInfo[];
+}
+
+// ===== Auto-Fixer =====
+
+export interface FixContext {
+  endpoints: ApiEndpoint[];
+  dtos: DTOInfo[];
+}
+
+export interface FixHistoryEntry {
+  timestamp: string;
+  attempt: number;
+  errorType: string;
+  errorPath: string;
+  errorMessage: string;
+  fixerUsed: string;
+  changedKeys: string[];
+  validationPassedAfterFix: boolean;
+}
+
+export interface FixResult {
+  success: boolean;
+  config: ModuleTestConfig;
+  totalAttempts: number;
+  history: FixHistoryEntry[];
+  remainingErrors: ModuleConfigValidationError[];
+}
+
 // ===== Adapter Types =====
 
 export interface BackendAdapter {

@@ -1,4 +1,14 @@
-import type { ValidationError } from '../types.js';
+import type {
+  ValidationError,
+  ModuleTestConfig,
+  ModuleConfigValidationContext,
+  ModuleConfigValidationResult,
+  ModuleConfigValidationError,
+  ModuleConfigValidationWarning,
+} from '../types.js';
+import { validateSchema } from './schema-validator.js';
+import { validateSemantic } from './semantic-validator.js';
+import { validateDryrun } from './dryrun-validator.js';
 
 const REQUIRED_FIELDS = ['backendRoot'];
 
@@ -174,4 +184,108 @@ export function validateConfig(config: Record<string, unknown>): ValidationError
   }
 
   return errors;
+}
+
+// ============================================================
+// Three-Layer Module Config Validator
+// ============================================================
+
+export interface ValidateModuleConfigOptions {
+  stopOnFailure?: boolean;
+  skipLayers?: Array<'schema' | 'semantic' | 'dryrun'>;
+}
+
+export function validateModuleConfig(
+  config: unknown,
+  context?: ModuleConfigValidationContext,
+  options?: ValidateModuleConfigOptions,
+): ModuleConfigValidationResult {
+  const stopOnFailure = options?.stopOnFailure ?? true;
+  const skipLayers = new Set(options?.skipLayers ?? []);
+
+  const allErrors: ModuleConfigValidationError[] = [];
+  const allWarnings: ModuleConfigValidationWarning[] = [];
+  const result: ModuleConfigValidationResult = {
+    passed: false,
+    errors: allErrors,
+    warnings: allWarnings,
+  };
+
+  if (!skipLayers.has('schema')) {
+    const schemaResult = validateSchema(config);
+    result.schemaResult = schemaResult;
+    allErrors.push(...schemaResult.errors);
+    allWarnings.push(...schemaResult.warnings);
+
+    if (!schemaResult.passed) {
+      result.failedAtLayer = 'schema';
+      if (stopOnFailure) return result;
+    } else {
+      result.lastPassedLayer = 'schema';
+    }
+  }
+
+  const validConfig = config as ModuleTestConfig;
+
+  if (!skipLayers.has('semantic')) {
+    if (!context) {
+      allWarnings.push({ layer: 'semantic', path: '', message: 'ValidationContext not provided, skipping semantic validation' });
+    } else {
+      const semanticResult = validateSemantic(validConfig, context);
+      result.semanticResult = semanticResult;
+      allErrors.push(...semanticResult.errors);
+      allWarnings.push(...semanticResult.warnings);
+
+      if (!semanticResult.passed) {
+        result.failedAtLayer = result.failedAtLayer || 'semantic';
+        if (stopOnFailure) return result;
+      } else {
+        result.lastPassedLayer = 'semantic';
+      }
+    }
+  }
+
+  if (!skipLayers.has('dryrun')) {
+    if (!context) {
+      allWarnings.push({ layer: 'dryrun', path: '', message: 'ValidationContext not provided, skipping dry-run validation' });
+    } else {
+      const dryrunResult = validateDryrun(validConfig, context);
+      result.dryrunResult = dryrunResult;
+      allErrors.push(...dryrunResult.errors);
+      allWarnings.push(...dryrunResult.warnings);
+
+      if (!dryrunResult.passed) {
+        result.failedAtLayer = result.failedAtLayer || 'dryrun';
+      } else {
+        result.lastPassedLayer = 'dryrun';
+      }
+    }
+  }
+
+  result.passed = allErrors.length === 0;
+  return result;
+}
+
+export function formatValidationResult(result: ModuleConfigValidationResult): string {
+  const lines: string[] = [];
+  lines.push(result.passed ? '\u2705 Validation PASSED' : '\u274c Validation FAILED');
+  if (result.failedAtLayer) lines.push(`   Failed at layer: ${result.failedAtLayer}`);
+  if (result.lastPassedLayer) lines.push(`   Last passed layer: ${result.lastPassedLayer}`);
+
+  if (result.errors.length > 0) {
+    lines.push('', `Errors (${result.errors.length}):`);
+    for (const err of result.errors) {
+      lines.push(`  [${err.layer}] ${err.path}: ${err.message}`);
+      if (err.suggestion) lines.push(`         \ud83d\udca1 ${err.suggestion}`);
+    }
+  }
+
+  if (result.warnings.length > 0) {
+    lines.push('', `Warnings (${result.warnings.length}):`);
+    for (const warn of result.warnings) {
+      lines.push(`  [${warn.layer}] ${warn.path}: ${warn.message}`);
+    }
+  }
+
+  return lines.join('\n');
 }

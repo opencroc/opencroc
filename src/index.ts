@@ -48,6 +48,22 @@ export type {
   WorkorderItem,
   TokenUsageEntry,
   TokenUsageSummary,
+  // Sprint 2-3 types
+  ModuleTestConfig,
+  SeedStep,
+  ModuleConfigErrorType,
+  ModuleConfigValidationError,
+  ModuleConfigValidationWarning,
+  LayerValidationResult,
+  ModuleConfigValidationResult,
+  ModuleConfigValidationContext,
+  DTOInfo,
+  DTOFieldInfo,
+  ValidatorRule,
+  ModuleMetadata,
+  FixContext,
+  FixHistoryEntry,
+  FixResult,
 } from './types.js';
 
 // --- Config ---
@@ -60,6 +76,7 @@ export { createPipeline } from './pipeline/index.js';
 export { createModelParser, parseModelFile, parseModuleModels } from './parsers/model-parser.js';
 export { createControllerParser, parseControllerFile, parseControllerDirectory, inferRelatedTables } from './parsers/controller-parser.js';
 export { createAssociationParser, parseAssociationFile, buildClassToTableMap, classNameToTableName } from './parsers/association-parser.js';
+export { parseDTOs, parseValidatorRules, scanModuleMetadata } from './parsers/dto-parser.js';
 
 // --- Generators ---
 export { createTestCodeGenerator } from './generators/test-code-generator.js';
@@ -70,8 +87,21 @@ export { createERDiagramGenerator } from './generators/er-diagram-generator.js';
 export { createApiChainAnalyzer, inferDependencies, buildGraph, detectCycles, topologicalSort } from './analyzers/api-chain-analyzer.js';
 export { createImpactReporter } from './analyzers/impact-reporter.js';
 
+// --- Planners ---
+export { createChainPlanner, createLlmChainPlanner } from './planners/chain-planner.js';
+
 // --- Validators ---
-export { validateConfig } from './validators/config-validator.js';
+export { validateConfig, validateModuleConfig, formatValidationResult } from './validators/config-validator.js';
+export { validateSchema } from './validators/schema-validator.js';
+export { validateSemantic } from './validators/semantic-validator.js';
+export { validateDryrun } from './validators/dryrun-validator.js';
+
+// --- Tools ---
+export { generateModuleConfig, generateAllModuleConfigs, recoverJSON } from './tools/ai-config-suggester.js';
+export { generateEnhancedConfig } from './tools/enhanced-ai-suggester.js';
+export { autoFix } from './tools/auto-fixer.js';
+export { parsePlaywrightReport, buildTestRunSummary, compareTestRuns, formatComparisonReport } from './tools/baseline-comparator.js';
+export { loadModulePresets, getModulePreset, listModulePresets } from './tools/preset-loader.js';
 
 // --- Self-Healing ---
 export { createSelfHealingLoop, categorizeFailure, analyzeFailureWithLLM } from './self-healing/index.js';

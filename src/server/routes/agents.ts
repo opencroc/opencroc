@@ -17,28 +17,38 @@ export function registerAgentRoutes(app: FastifyInstance, office: CrocOffice): v
     return agent;
   });
 
-  // POST /api/agents/:id/task — assign a task to an agent (M2: full implementation)
-  app.post<{ Params: { id: string }; Body: { task: string } }>('/api/agents/:id/task', async (req, reply) => {
-    const agent = office.getAgent(req.params.id);
-    if (!agent) {
-      reply.code(404).send({ error: 'Agent not found' });
+  // POST /api/scan — trigger project scan (parser croc)
+  app.post('/api/scan', async (_req, reply) => {
+    if (office.isRunning()) {
+      reply.code(409).send({ error: 'A task is already running' });
       return;
     }
+    // Run async — don't await, respond immediately
+    office.runScan().catch(() => { /* errors handled in runScan */ });
+    return { ok: true, message: 'Scan started' };
+  });
 
-    office.updateAgent(req.params.id, {
-      status: 'working',
-      currentTask: req.body?.task || 'Processing...',
-    });
+  // POST /api/pipeline — trigger full pipeline (all crocs)
+  app.post('/api/pipeline', async (_req, reply) => {
+    if (office.isRunning()) {
+      reply.code(409).send({ error: 'A task is already running' });
+      return;
+    }
+    office.runPipeline().catch(() => { /* errors handled in runPipeline */ });
+    return { ok: true, message: 'Pipeline started' };
+  });
 
-    // M2 will implement actual task dispatch to LLM
-    // For now, simulate work
-    setTimeout(() => {
-      office.updateAgent(req.params.id, {
-        status: 'done',
-        currentTask: 'Task completed',
-      });
-    }, 2000);
+  // POST /api/reset — reset all agents to idle
+  app.post('/api/reset', async () => {
+    office.resetAgents();
+    return { ok: true };
+  });
 
-    return { ok: true, agent: req.params.id, task: req.body?.task };
+  // GET /api/status — overall status
+  app.get('/api/status', async () => {
+    return {
+      running: office.isRunning(),
+      agents: office.getAgents(),
+    };
   });
 }

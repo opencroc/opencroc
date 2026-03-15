@@ -48,4 +48,47 @@ describe('CrocOffice', () => {
     expect(info.agents).toHaveLength(6);
     expect(info.graph).toBeDefined();
   });
+
+  it('should report isRunning as false initially', () => {
+    const office = new CrocOffice(config, process.cwd());
+    expect(office.isRunning()).toBe(false);
+  });
+
+  it('should reset all agents to idle', () => {
+    const office = new CrocOffice(config, process.cwd());
+    office.updateAgent('parser-croc', { status: 'working', currentTask: 'Scanning...', progress: 50 });
+    office.updateAgent('tester-croc', { status: 'done', currentTask: 'Done', progress: 100 });
+    office.resetAgents();
+    for (const a of office.getAgents()) {
+      expect(a.status).toBe('idle');
+      expect(a.currentTask).toBeUndefined();
+      expect(a.progress).toBeUndefined();
+    }
+  });
+
+  it('should run scan and return result', async () => {
+    const office = new CrocOffice(config, process.cwd());
+    const result = await office.runScan();
+    expect(result.ok).toBe(true);
+    expect(result.task).toBe('scan');
+    expect(result.duration).toBeGreaterThanOrEqual(0);
+    expect(office.isRunning()).toBe(false);
+  });
+
+  it('should reject concurrent tasks', async () => {
+    const office = new CrocOffice(config, process.cwd());
+    // Start scan without awaiting
+    const p1 = office.runScan();
+    // Try to start pipeline while scan is running
+    const p2Result = await office.runPipeline();
+    expect(p2Result.ok).toBe(false);
+    expect(p2Result.error).toContain('Another task');
+    await p1;
+  });
+
+  it('should expose getConfig and getCwd', () => {
+    const office = new CrocOffice(config, process.cwd());
+    expect(office.getConfig()).toBe(config);
+    expect(office.getCwd()).toBe(process.cwd());
+  });
 });

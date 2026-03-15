@@ -14,721 +14,307 @@
     --red: #e94560;
     --orange: #f39c12;
     --blue: #3498db;
+    --purple: #9b59b6;
     --text: #e0e0e0;
     --text-dim: #888;
     --pixel-border: 2px solid #333;
   }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg-dark); color:var(--text); font-family:'Courier New','Consolas',monospace; overflow:hidden; height:100vh; }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  .app { display:grid; grid-template-rows:48px 1fr 220px; grid-template-columns:220px 1fr 280px; height:100vh; }
 
-  body {
-    background: var(--bg-dark);
-    color: var(--text);
-    font-family: 'Courier New', 'Consolas', monospace;
-    overflow: hidden;
-    height: 100vh;
-  }
+  .header { grid-column:1/-1; background:var(--bg-panel); border-bottom:var(--pixel-border); display:flex; align-items:center; padding:0 16px; gap:12px; }
+  .header .logo { font-size:24px; }
+  .header h1 { font-size:15px; color:var(--accent); }
+  .header .actions { display:flex; gap:6px; }
+  .btn { background:var(--accent-dim); color:#fff; border:none; padding:5px 12px; font-family:inherit; font-size:11px; border-radius:3px; cursor:pointer; transition:all .2s; }
+  .btn:hover { background:var(--accent); transform:translateY(-1px); }
+  .btn:active { transform:translateY(0); }
+  .btn:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+  .btn.danger { background:#8b2035; }
+  .btn.danger:hover { background:var(--red); }
+  .header .stats { margin-left:auto; display:flex; gap:14px; font-size:11px; color:var(--text-dim); }
+  .header .stats span { color:var(--accent); font-weight:bold; }
+  .conn-dot { width:8px; height:8px; border-radius:50%; background:var(--red); transition:background .3s; }
+  .conn-dot.on { background:var(--accent); }
 
-  /* ===== Layout ===== */
-  .app {
-    display: grid;
-    grid-template-rows: 48px 1fr 200px;
-    grid-template-columns: 240px 1fr;
-    height: 100vh;
-  }
+  .sidebar { background:var(--bg-panel); border-right:var(--pixel-border); overflow-y:auto; padding:8px; }
+  .sidebar h3 { font-size:10px; text-transform:uppercase; color:var(--text-dim); padding:8px 4px 4px; letter-spacing:1px; }
+  .mod-item { padding:5px 8px; border-radius:3px; font-size:11px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:background .15s; }
+  .mod-item:hover { background:var(--bg-card); }
+  .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .dot.idle { background:var(--text-dim); }
+  .dot.testing,.dot.working { background:var(--orange); animation:blink .7s infinite; }
+  .dot.thinking { background:var(--blue); animation:blink 1s infinite; }
+  .dot.passed,.dot.done { background:var(--accent); }
+  .dot.failed,.dot.error { background:var(--red); }
+  @keyframes blink { 50%{opacity:.3} }
 
-  .header {
-    grid-column: 1 / -1;
-    background: var(--bg-panel);
-    border-bottom: var(--pixel-border);
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    gap: 16px;
-  }
+  .main { position:relative; overflow:hidden; }
+  #graph-canvas { width:100%; height:100%; display:block; cursor:grab; }
+  .tooltip { position:absolute; background:var(--bg-card); border:1px solid var(--accent-dim); border-radius:4px; padding:8px 12px; font-size:11px; pointer-events:none; z-index:100; display:none; max-width:280px; }
+  .tooltip.visible { display:block; }
 
-  .header h1 {
-    font-size: 16px;
-    color: var(--accent);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+  .log-panel { background:var(--bg-panel); border-left:var(--pixel-border); display:flex; flex-direction:column; overflow:hidden; }
+  .log-panel h3 { font-size:10px; text-transform:uppercase; color:var(--text-dim); padding:10px 10px 6px; letter-spacing:1px; border-bottom:1px solid #222; }
+  .log-list { flex:1; overflow-y:auto; padding:4px 8px; font-size:10px; line-height:1.6; }
+  .log-list .log-entry { padding:2px 0; border-bottom:1px solid #1a1a2e; word-break:break-all; }
+  .log-list .log-entry.warn { color:var(--orange); }
+  .log-list .log-entry.error { color:var(--red); }
 
-  .header .logo {
-    font-size: 24px;
-    image-rendering: pixelated;
-  }
-
-  .header .stats {
-    margin-left: auto;
-    display: flex;
-    gap: 16px;
-    font-size: 12px;
-    color: var(--text-dim);
-  }
-
-  .header .stats span {
-    color: var(--accent);
-    font-weight: bold;
-  }
-
-  .header .conn-status {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--red);
-    transition: background 0.3s;
-  }
-
-  .header .conn-status.connected { background: var(--accent); }
-
-  .sidebar {
-    background: var(--bg-panel);
-    border-right: var(--pixel-border);
-    overflow-y: auto;
-    padding: 8px;
-  }
-
-  .sidebar h3 {
-    font-size: 11px;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    padding: 8px 4px 4px;
-    letter-spacing: 1px;
-  }
-
-  .sidebar .module-item {
-    padding: 6px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: background 0.15s;
-  }
-
-  .sidebar .module-item:hover { background: var(--bg-card); }
-  .sidebar .module-item .dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--text-dim);
-  }
-  .sidebar .module-item .dot.idle { background: var(--text-dim); }
-  .sidebar .module-item .dot.testing { background: var(--orange); animation: blink 0.8s infinite; }
-  .sidebar .module-item .dot.passed { background: var(--accent); }
-  .sidebar .module-item .dot.failed { background: var(--red); }
-
-  @keyframes blink { 50% { opacity: 0.3; } }
-
-  /* ===== Main Canvas Area ===== */
-  .main {
-    position: relative;
-    overflow: hidden;
-  }
-
-  #graph-canvas {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  /* ===== Bottom Panel: Croc Office ===== */
-  .office-panel {
-    grid-column: 1 / -1;
-    background: var(--bg-panel);
-    border-top: var(--pixel-border);
-    display: flex;
-    overflow-x: auto;
-    padding: 8px;
-    gap: 8px;
-  }
-
-  .croc-desk {
-    flex: 0 0 200px;
-    background: var(--bg-card);
-    border: 1px solid #333;
-    border-radius: 4px;
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    position: relative;
-  }
-
-  .croc-desk .croc-sprite {
-    font-size: 48px;
-    image-rendering: pixelated;
-    transition: transform 0.3s;
-    position: relative;
-  }
-
-  .croc-desk.working .croc-sprite {
-    animation: croc-work 0.6s infinite alternate;
-  }
-
-  .croc-desk.thinking .croc-sprite {
-    animation: croc-think 1s infinite;
-  }
-
-  @keyframes croc-work {
-    from { transform: translateY(0) rotate(-2deg); }
-    to { transform: translateY(-4px) rotate(2deg); }
-  }
-
-  @keyframes croc-think {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-  }
-
-  .croc-desk .croc-name {
-    font-size: 11px;
-    font-weight: bold;
-    color: var(--accent);
-  }
-
-  .croc-desk .croc-role {
-    font-size: 9px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-  }
-
-  .croc-desk .croc-task {
-    font-size: 9px;
-    color: var(--orange);
-    text-align: center;
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    min-height: 14px;
-  }
-
-  .croc-desk .status-badge {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-dim);
-  }
-
-  .croc-desk .status-badge.idle { background: var(--text-dim); }
-  .croc-desk .status-badge.working { background: var(--orange); animation: blink 0.6s infinite; }
-  .croc-desk .status-badge.thinking { background: var(--blue); animation: blink 1s infinite; }
-  .croc-desk .status-badge.done { background: var(--accent); }
-  .croc-desk .status-badge.error { background: var(--red); }
-
-  /* ===== Tooltip ===== */
-  .tooltip {
-    position: absolute;
-    background: var(--bg-card);
-    border: 1px solid var(--accent-dim);
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 11px;
-    pointer-events: none;
-    z-index: 100;
-    display: none;
-    max-width: 300px;
-  }
-
-  .tooltip.visible { display: block; }
-
-  /* ===== Action Buttons ===== */
-  .actions {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-  }
-
-  .btn {
-    background: var(--accent-dim);
-    color: #fff;
-    border: none;
-    padding: 6px 14px;
-    font-family: inherit;
-    font-size: 11px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .btn:hover { background: var(--accent); }
-  .btn.danger { background: #8b2035; }
-  .btn.danger:hover { background: var(--red); }
-
-  /* Pixel art decorations */
-  .pixel-floor {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: repeating-linear-gradient(90deg, #2a2a4a 0, #2a2a4a 8px, #1a1a3a 8px, #1a1a3a 16px);
-  }
+  .office { grid-column:1/-1; background:var(--bg-panel); border-top:var(--pixel-border); display:flex; overflow-x:auto; padding:8px; gap:8px; }
+  .desk { flex:0 0 180px; background:var(--bg-card); border:1px solid #333; border-radius:4px; padding:8px; display:flex; flex-direction:column; align-items:center; gap:2px; position:relative; overflow:hidden; }
+  .desk .badge { position:absolute; top:4px; right:4px; width:8px; height:8px; border-radius:50%; }
+  .desk .croc-sprite { font-size:40px; position:relative; z-index:1; }
+  .desk.idle .croc-sprite { animation:croc-idle 3s infinite; }
+  .desk.working .croc-sprite { animation:croc-work .5s infinite alternate; }
+  .desk.thinking .croc-sprite { animation:croc-think 1.2s infinite; }
+  .desk.done .croc-sprite { animation:croc-done .8s 1; }
+  .desk.error .croc-sprite { animation:croc-error .3s 3; }
+  @keyframes croc-idle { 0%,90%,100%{transform:translateY(0)} 95%{transform:translateY(-3px)} }
+  @keyframes croc-work { from{transform:translateY(0) rotate(-3deg)} to{transform:translateY(-5px) rotate(3deg)} }
+  @keyframes croc-think { 0%,100%{transform:scale(1) rotate(0)} 25%{transform:scale(1.05) rotate(-2deg)} 75%{transform:scale(1.05) rotate(2deg)} }
+  @keyframes croc-done { 0%{transform:scale(1)} 50%{transform:scale(1.2) translateY(-8px)} 100%{transform:scale(1)} }
+  @keyframes croc-error { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+  .desk .croc-name { font-size:11px; font-weight:bold; color:var(--accent); }
+  .desk .croc-role { font-size:9px; color:var(--text-dim); text-transform:uppercase; }
+  .desk .croc-task { font-size:9px; color:var(--orange); text-align:center; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-height:13px; }
+  .desk .progress-bar { width:90%; height:3px; background:#222; border-radius:2px; margin-top:2px; overflow:hidden; }
+  .desk .progress-bar .fill { height:100%; background:var(--accent); transition:width .3s; border-radius:2px; }
+  .desk .desk-items { position:absolute; bottom:4px; right:8px; font-size:14px; opacity:.4; }
 </style>
 </head>
 <body>
-
 <div class="app">
-  <!-- Header -->
   <header class="header">
     <div class="logo">🐊</div>
     <h1>OpenCroc Studio</h1>
     <div class="actions">
-      <button class="btn" id="btn-scan" title="Re-scan project">🔄 Scan</button>
-      <button class="btn" id="btn-test" title="Run all tests">▶ Test</button>
+      <button class="btn" id="btn-scan" title="Scan project">🔍 Scan</button>
+      <button class="btn" id="btn-pipeline" title="Run full pipeline">▶ Pipeline</button>
+      <button class="btn danger" id="btn-reset" title="Reset agents">⏹ Reset</button>
     </div>
-    <div class="stats" id="header-stats">
-      <div>Modules: <span id="stat-modules">-</span></div>
-      <div>Models: <span id="stat-models">-</span></div>
-      <div>APIs: <span id="stat-endpoints">-</span></div>
+    <div class="stats">
+      <div>Modules: <span id="s-mod">-</span></div>
+      <div>Models: <span id="s-mdl">-</span></div>
+      <div>APIs: <span id="s-api">-</span></div>
     </div>
-    <div class="conn-status" id="conn-status" title="WebSocket"></div>
+    <div class="conn-dot" id="conn-dot" title="WebSocket"></div>
   </header>
 
-  <!-- Sidebar: Module List -->
-  <aside class="sidebar" id="sidebar">
-    <h3>🗂 Modules</h3>
-    <div id="module-list"></div>
-    <h3 style="margin-top:16px">🐊 Agents</h3>
-    <div id="agent-list-sidebar"></div>
+  <aside class="sidebar">
+    <h3>📂 Modules</h3>
+    <div id="mod-list"></div>
+    <h3 style="margin-top:12px">🐊 Agents</h3>
+    <div id="agent-sidebar"></div>
   </aside>
 
-  <!-- Main: Knowledge Graph Canvas -->
   <main class="main">
     <canvas id="graph-canvas"></canvas>
     <div class="tooltip" id="tooltip"></div>
   </main>
 
-  <!-- Bottom: Pixel Croc Office -->
-  <section class="office-panel" id="croc-office">
-    <!-- Populated by JS -->
-  </section>
+  <div class="log-panel">
+    <h3>📋 Activity Log</h3>
+    <div class="log-list" id="log-list"></div>
+  </div>
+
+  <section class="office" id="croc-office"></section>
 </div>
 
 <script>
-// ============================================
-// OpenCroc Studio — M1 Frontend
-// ============================================
-
-const state = {
-  project: null,
-  graph: { nodes: [], edges: [] },
-  agents: [],
-  ws: null,
-  selectedNode: null,
-  // Canvas rendering state
-  pan: { x: 0, y: 0 },
-  zoom: 1,
-  dragging: false,
-  dragStart: { x: 0, y: 0 },
-  nodePositions: new Map(),
-  hoveredNode: null,
+const S = {
+  project:null, graph:{nodes:[],edges:[]}, agents:[], ws:null,
+  pan:{x:0,y:0}, zoom:1, dragging:false, dragStart:{x:0,y:0},
+  nodePos:new Map(), hoveredNode:null, running:false
 };
 
-// ============ API ============
-
-async function fetchProject() {
-  try {
-    const res = await fetch('/api/project');
-    state.project = await res.json();
-    state.graph = state.project.graph || { nodes: [], edges: [] };
-    state.agents = state.project.agents || [];
-    layoutGraph();
-    updateUI();
-  } catch (e) {
-    console.error('Failed to fetch project:', e);
-  }
+async function fetchProject(){
+  try{
+    const r=await fetch('/api/project'); S.project=await r.json();
+    S.graph=S.project.graph||{nodes:[],edges:[]}; S.agents=S.project.agents||[];
+    layoutGraph(); updateAll();
+  }catch(e){addLog('Failed to load: '+e.message,'error');}
+}
+async function doScan(){
+  if(S.running)return; S.running=true; updateBtns();
+  addLog('🔍 Starting scan...');
+  try{await fetch('/api/scan',{method:'POST'});}
+  catch(e){addLog('Scan failed: '+e.message,'error');S.running=false;updateBtns();}
+}
+async function doPipeline(){
+  if(S.running)return; S.running=true; updateBtns();
+  addLog('▶ Starting pipeline...');
+  try{await fetch('/api/pipeline',{method:'POST'});}
+  catch(e){addLog('Pipeline failed: '+e.message,'error');S.running=false;updateBtns();}
+}
+async function doReset(){
+  try{await fetch('/api/reset',{method:'POST'});}catch(e){addLog('Reset failed','error');}
+  S.running=false; updateBtns(); addLog('⏹ Agents reset');
+}
+function updateBtns(){
+  document.getElementById('btn-scan').disabled=S.running;
+  document.getElementById('btn-pipeline').disabled=S.running;
 }
 
-async function refreshProject() {
-  try {
-    await fetch('/api/project/refresh', { method: 'POST' });
-    await fetchProject();
-  } catch (e) {
-    console.error('Failed to refresh:', e);
-  }
-}
-
-// ============ WebSocket ============
-
-function connectWS() {
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  state.ws = new WebSocket(`${protocol}//${location.host}/ws`);
-
-  state.ws.onopen = () => {
-    document.getElementById('conn-status').classList.add('connected');
-  };
-
-  state.ws.onmessage = (e) => {
-    try {
-      const msg = JSON.parse(e.data);
-      if (msg.type === 'agent:update' && Array.isArray(msg.payload)) {
-        state.agents = msg.payload;
-        renderCrocOffice();
-        renderAgentSidebar();
-      } else if (msg.type === 'graph:update') {
-        state.graph = msg.payload;
-        layoutGraph();
-        renderCanvas();
+function connectWS(){
+  const p=location.protocol==='https:'?'wss:':'ws:';
+  S.ws=new WebSocket(p+'//'+location.host+'/ws');
+  S.ws.onopen=()=>{document.getElementById('conn-dot').classList.add('on');};
+  S.ws.onmessage=(e)=>{
+    try{
+      const m=JSON.parse(e.data);
+      if(m.type==='agent:update'&&Array.isArray(m.payload)){
+        S.agents=m.payload; renderOffice(); renderAgentSB();
+      }else if(m.type==='graph:update'){
+        S.graph=m.payload; layoutGraph(); renderCanvas(); renderModList(); updateStats();
+      }else if(m.type==='log'){
+        addLog(m.payload.message, m.payload.level);
+      }else if(m.type==='pipeline:complete'){
+        S.running=false; updateBtns();
+        if(m.payload.status==='success') addLog('✅ Pipeline complete!');
+        else addLog('❌ Pipeline failed: '+(m.payload.error||''),'error');
+        setTimeout(fetchProject,500);
       }
-    } catch {}
+    }catch{}
   };
-
-  state.ws.onclose = () => {
-    document.getElementById('conn-status').classList.remove('connected');
-    // Reconnect after 3s
-    setTimeout(connectWS, 3000);
-  };
+  S.ws.onclose=()=>{document.getElementById('conn-dot').classList.remove('on');setTimeout(connectWS,3000);};
 }
 
-// ============ Graph Layout (Force-directed) ============
+function addLog(msg,level){
+  level=level||'info';
+  const el=document.getElementById('log-list');
+  const d=document.createElement('div'); d.className='log-entry '+level;
+  d.textContent='['+new Date().toLocaleTimeString()+'] '+msg;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+}
+function updateStats(){
+  document.getElementById('s-mod').textContent=S.graph.nodes.filter(n=>n.type==='module').length;
+  document.getElementById('s-mdl').textContent=S.graph.nodes.filter(n=>n.type==='model').length;
+  document.getElementById('s-api').textContent=S.graph.nodes.filter(n=>n.type==='controller'||n.type==='api').length;
+}
 
-function layoutGraph() {
-  const nodes = state.graph.nodes;
-  if (!nodes.length) return;
-
-  const canvas = document.getElementById('graph-canvas');
-  const w = canvas.width;
-  const h = canvas.height;
-  const cx = w / 2;
-  const cy = h / 2;
-
-  // Group by module
-  const modules = new Map();
-  for (const node of nodes) {
-    const m = node.module || node.id;
-    if (!modules.has(m)) modules.set(m, []);
-    modules.get(m).push(node);
-  }
-
-  const moduleKeys = [...modules.keys()];
-  const moduleCount = moduleKeys.length || 1;
-
-  for (let mi = 0; mi < moduleKeys.length; mi++) {
-    const modNodes = modules.get(moduleKeys[mi]);
-    const angle = (mi / moduleCount) * Math.PI * 2 - Math.PI / 2;
-    const radius = Math.min(w, h) * 0.3;
-    const modCx = cx + Math.cos(angle) * radius;
-    const modCy = cy + Math.sin(angle) * radius;
-
-    for (let ni = 0; ni < modNodes.length; ni++) {
-      const nAngle = (ni / modNodes.length) * Math.PI * 2;
-      const nRadius = 40 + modNodes.length * 10;
-      state.nodePositions.set(modNodes[ni].id, {
-        x: modCx + Math.cos(nAngle) * nRadius,
-        y: modCy + Math.sin(nAngle) * nRadius,
-      });
+function layoutGraph(){
+  const nodes=S.graph.nodes; if(!nodes.length)return;
+  const c=document.getElementById('graph-canvas');
+  const w=c.clientWidth||800,h=c.clientHeight||500,cx=w/2,cy=h/2;
+  const mods=new Map();
+  for(const n of nodes){const m=n.module||n.id;if(!mods.has(m))mods.set(m,[]);mods.get(m).push(n);}
+  const keys=[...mods.keys()];
+  for(let i=0;i<keys.length;i++){
+    const mn=mods.get(keys[i]);
+    const a=(i/keys.length)*Math.PI*2-Math.PI/2, r=Math.min(w,h)*.3;
+    const mcx=cx+Math.cos(a)*r, mcy=cy+Math.sin(a)*r;
+    for(let j=0;j<mn.length;j++){
+      const na=(j/mn.length)*Math.PI*2, nr=35+mn.length*8;
+      S.nodePos.set(mn[j].id,{x:mcx+Math.cos(na)*nr,y:mcy+Math.sin(na)*nr});
     }
   }
 }
 
-// ============ Canvas Rendering ============
-
-function renderCanvas() {
-  const canvas = document.getElementById('graph-canvas');
-  const ctx = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-
-  canvas.width = canvas.clientWidth * dpr;
-  canvas.height = canvas.clientHeight * dpr;
-  ctx.scale(dpr, dpr);
-
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-
-  ctx.clearRect(0, 0, w, h);
-  ctx.save();
-  ctx.translate(state.pan.x, state.pan.y);
-  ctx.scale(state.zoom, state.zoom);
-
-  // Draw grid (pixel art style)
-  ctx.strokeStyle = '#1a1a3a';
-  ctx.lineWidth = 0.5;
-  const gridSize = 32;
-  for (let x = 0; x < w * 2; x += gridSize) {
-    ctx.beginPath(); ctx.moveTo(x, -h); ctx.lineTo(x, h * 2); ctx.stroke();
+function renderCanvas(){
+  const canvas=document.getElementById('graph-canvas'),ctx=canvas.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=canvas.clientWidth*dpr; canvas.height=canvas.clientHeight*dpr;
+  ctx.scale(dpr,dpr);
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  ctx.clearRect(0,0,w,h); ctx.save(); ctx.translate(S.pan.x,S.pan.y); ctx.scale(S.zoom,S.zoom);
+  // Grid
+  ctx.strokeStyle='#151530';ctx.lineWidth=.5;
+  for(let x=0;x<w*2;x+=32){ctx.beginPath();ctx.moveTo(x,-h);ctx.lineTo(x,h*2);ctx.stroke();}
+  for(let y=0;y<h*2;y+=32){ctx.beginPath();ctx.moveTo(-w,y);ctx.lineTo(w*2,y);ctx.stroke();}
+  const edges=S.graph.edges||[],nodes=S.graph.nodes||[];
+  // Edges
+  for(const e of edges){
+    const s=S.nodePos.get(e.source),t=S.nodePos.get(e.target);if(!s||!t)continue;
+    ctx.strokeStyle='rgba(78,204,163,.25)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(t.x,t.y);ctx.stroke();
+    const a=Math.atan2(t.y-s.y,t.x-s.x),al=7,ax=t.x-Math.cos(a)*18,ay=t.y-Math.sin(a)*18;
+    ctx.fillStyle='rgba(78,204,163,.4)';ctx.beginPath();ctx.moveTo(ax,ay);
+    ctx.lineTo(ax-al*Math.cos(a-.4),ay-al*Math.sin(a-.4));
+    ctx.lineTo(ax-al*Math.cos(a+.4),ay-al*Math.sin(a+.4));ctx.closePath();ctx.fill();
   }
-  for (let y = 0; y < h * 2; y += gridSize) {
-    ctx.beginPath(); ctx.moveTo(-w, y); ctx.lineTo(w * 2, y); ctx.stroke();
+  const tc={model:'#4ecca3',controller:'#e94560',api:'#f39c12',dto:'#3498db',module:'#9b59b6'};
+  const sc={idle:'#444',testing:'#f39c12',passed:'#4ecca3',failed:'#e94560'};
+  const icons={model:'📦',controller:'🎮',api:'🔌',dto:'📋',module:'📁'};
+  for(const n of nodes){
+    const p=S.nodePos.get(n.id);if(!p)continue;
+    const sz=n.type==='module'?22:14,c=tc[n.type]||'#888',ol=sc[n.status]||'#444',hov=S.hoveredNode===n.id;
+    if(n.status==='testing'){ctx.shadowColor=sc.testing;ctx.shadowBlur=12;}
+    else if(n.status==='passed'){ctx.shadowColor=sc.passed;ctx.shadowBlur=8;}
+    else if(n.status==='failed'){ctx.shadowColor=sc.failed;ctx.shadowBlur=10;}
+    ctx.fillStyle='rgba(0,0,0,.3)';ctx.fillRect(p.x-sz+2,p.y-sz+2,sz*2,sz*2);
+    ctx.fillStyle=c;ctx.fillRect(p.x-sz,p.y-sz,sz*2,sz*2);
+    ctx.fillStyle='rgba(255,255,255,.15)';ctx.fillRect(p.x-sz,p.y-sz,sz*2,3);ctx.fillRect(p.x-sz,p.y-sz,3,sz*2);
+    ctx.shadowBlur=0;ctx.strokeStyle=hov?'#fff':ol;ctx.lineWidth=hov?3:2;ctx.strokeRect(p.x-sz,p.y-sz,sz*2,sz*2);
+    ctx.font=sz+'px serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(icons[n.type]||'⬜',p.x,p.y);
+    ctx.font='10px "Courier New"';ctx.fillStyle=hov?'#fff':'#bbb';ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillText((n.label||n.id.split(':').pop()).substring(0,20),p.x,p.y+sz+4);
   }
-
-  const edges = state.graph.edges || [];
-  const nodes = state.graph.nodes || [];
-
-  // Draw edges
-  ctx.lineWidth = 1.5;
-  for (const edge of edges) {
-    const s = state.nodePositions.get(edge.source);
-    const t = state.nodePositions.get(edge.target);
-    if (!s || !t) continue;
-
-    const gradient = ctx.createLinearGradient(s.x, s.y, t.x, t.y);
-    gradient.addColorStop(0, 'rgba(78, 204, 163, 0.4)');
-    gradient.addColorStop(1, 'rgba(78, 204, 163, 0.1)');
-    ctx.strokeStyle = gradient;
-
-    ctx.beginPath();
-    ctx.moveTo(s.x, s.y);
-    ctx.lineTo(t.x, t.y);
-    ctx.stroke();
-
-    // Arrow head
-    const angle = Math.atan2(t.y - s.y, t.x - s.x);
-    const arrowLen = 8;
-    const ax = t.x - Math.cos(angle) * 20;
-    const ay = t.y - Math.sin(angle) * 20;
-    ctx.fillStyle = 'rgba(78, 204, 163, 0.5)';
-    ctx.beginPath();
-    ctx.moveTo(ax, ay);
-    ctx.lineTo(ax - arrowLen * Math.cos(angle - 0.4), ay - arrowLen * Math.sin(angle - 0.4));
-    ctx.lineTo(ax - arrowLen * Math.cos(angle + 0.4), ay - arrowLen * Math.sin(angle + 0.4));
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  // Draw nodes (pixel art style — square blocks)
-  const typeColors = {
-    model: '#4ecca3',
-    controller: '#e94560',
-    api: '#f39c12',
-    dto: '#3498db',
-    module: '#9b59b6',
-  };
-
-  const statusOutline = {
-    idle: '#555',
-    testing: '#f39c12',
-    passed: '#4ecca3',
-    failed: '#e94560',
-  };
-
-  for (const node of nodes) {
-    const pos = state.nodePositions.get(node.id);
-    if (!pos) continue;
-
-    const size = node.type === 'module' ? 24 : 16;
-    const color = typeColors[node.type] || '#888';
-    const outline = statusOutline[node.status] || '#555';
-    const isHovered = state.hoveredNode === node.id;
-
-    // Shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.fillRect(pos.x - size + 2, pos.y - size + 2, size * 2, size * 2);
-
-    // Main block
-    ctx.fillStyle = color;
-    ctx.fillRect(pos.x - size, pos.y - size, size * 2, size * 2);
-
-    // Pixel highlight (top-left)
-    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    ctx.fillRect(pos.x - size, pos.y - size, size * 2, 3);
-    ctx.fillRect(pos.x - size, pos.y - size, 3, size * 2);
-
-    // Status outline
-    ctx.strokeStyle = isHovered ? '#fff' : outline;
-    ctx.lineWidth = isHovered ? 3 : 2;
-    ctx.strokeRect(pos.x - size, pos.y - size, size * 2, size * 2);
-
-    // Icon (pixel emoji)
-    ctx.font = `${size}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const icons = { model: '📦', controller: '🎮', api: '🔌', dto: '📋', module: '📁' };
-    ctx.fillText(icons[node.type] || '⬜', pos.x, pos.y);
-
-    // Label
-    ctx.font = '10px "Courier New"';
-    ctx.fillStyle = isHovered ? '#fff' : '#ccc';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    const label = node.label || node.id.split(':').pop();
-    ctx.fillText(label, pos.x, pos.y + size + 4);
-  }
-
   ctx.restore();
 }
 
-// ============ Canvas Interaction ============
-
-function setupCanvasInteraction() {
-  const canvas = document.getElementById('graph-canvas');
-
-  canvas.addEventListener('mousedown', (e) => {
-    state.dragging = true;
-    state.dragStart = { x: e.clientX - state.pan.x, y: e.clientY - state.pan.y };
-  });
-
-  canvas.addEventListener('mousemove', (e) => {
-    if (state.dragging) {
-      state.pan.x = e.clientX - state.dragStart.x;
-      state.pan.y = e.clientY - state.dragStart.y;
-      renderCanvas();
-    }
-
-    // Hit-test nodes
-    const rect = canvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left - state.pan.x) / state.zoom;
-    const my = (e.clientY - rect.top - state.pan.y) / state.zoom;
-
-    let hit = null;
-    for (const node of state.graph.nodes) {
-      const pos = state.nodePositions.get(node.id);
-      if (!pos) continue;
-      const size = node.type === 'module' ? 24 : 16;
-      if (mx >= pos.x - size && mx <= pos.x + size && my >= pos.y - size && my <= pos.y + size) {
-        hit = node;
-        break;
-      }
-    }
-
-    const tooltip = document.getElementById('tooltip');
-    if (hit) {
-      state.hoveredNode = hit.id;
-      tooltip.innerHTML = `<b>${hit.label || hit.id}</b><br>Type: ${hit.type}<br>Status: ${hit.status}${hit.module ? '<br>Module: ' + hit.module : ''}`;
-      tooltip.style.left = (e.clientX + 12) + 'px';
-      tooltip.style.top = (e.clientY + 12) + 'px';
-      tooltip.classList.add('visible');
-      canvas.style.cursor = 'pointer';
-    } else {
-      if (state.hoveredNode) {
-        state.hoveredNode = null;
-        renderCanvas();
-      }
-      tooltip.classList.remove('visible');
-      canvas.style.cursor = state.dragging ? 'grabbing' : 'grab';
-    }
-    if (hit) renderCanvas();
-  });
-
-  canvas.addEventListener('mouseup', () => { state.dragging = false; });
-  canvas.addEventListener('mouseleave', () => {
-    state.dragging = false;
-    document.getElementById('tooltip').classList.remove('visible');
-  });
-
-  canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    state.zoom = Math.max(0.2, Math.min(3, state.zoom * delta));
-    renderCanvas();
-  }, { passive: false });
-}
-
-// ============ UI Updates ============
-
-function updateUI() {
-  if (state.project) {
-    document.getElementById('stat-modules').textContent = state.project.stats?.modules || 0;
-    document.getElementById('stat-models').textContent = state.project.stats?.models || 0;
-    document.getElementById('stat-endpoints').textContent = state.project.stats?.endpoints || 0;
-  }
-
-  renderModuleList();
-  renderCrocOffice();
-  renderAgentSidebar();
-  renderCanvas();
-}
-
-function renderModuleList() {
-  const list = document.getElementById('module-list');
-  const modules = state.graph.nodes.filter(n => n.type === 'module');
-
-  if (!modules.length) {
-    list.innerHTML = '<div style="padding:8px;color:#666;font-size:11px">No modules found</div>';
-    return;
-  }
-
-  list.innerHTML = modules.map(m => `
-    <div class="module-item" data-id="${esc(m.id)}">
-      <div class="dot ${m.status}"></div>
-      ${esc(m.label || m.id.replace('module:', ''))}
-    </div>
-  `).join('');
-}
-
-function renderAgentSidebar() {
-  const list = document.getElementById('agent-list-sidebar');
-  list.innerHTML = state.agents.map(a => `
-    <div class="module-item">
-      <div class="dot ${a.status}"></div>
-      ${esc(a.name)} <span style="color:#666;font-size:9px">${a.status}</span>
-    </div>
-  `).join('');
-}
-
-function renderCrocOffice() {
-  const office = document.getElementById('croc-office');
-
-  const sprites = {
-    parser: '🐊',
-    analyzer: '🐊',
-    tester: '🐊',
-    healer: '🐊',
-    planner: '🐊',
-    reporter: '🐊',
-  };
-
-  // Desk decorations per role
-  const deskDecor = {
-    parser: '💻',
-    analyzer: '📊',
-    tester: '🧪',
-    healer: '🔧',
-    planner: '📋',
-    reporter: '📝',
-  };
-
-  office.innerHTML = state.agents.map(a => `
-    <div class="croc-desk ${a.status}">
-      <div class="status-badge ${a.status}"></div>
-      <div class="croc-sprite">${sprites[a.role] || '🐊'}</div>
-      <div class="croc-name">${esc(a.name)}</div>
-      <div class="croc-role">${esc(a.role)} ${deskDecor[a.role] || ''}</div>
-      <div class="croc-task">${a.currentTask ? esc(a.currentTask) : ''}</div>
-      <div class="pixel-floor"></div>
-    </div>
-  `).join('');
-}
-
-function esc(s) {
-  if (!s) return '';
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ============ Event Handlers ============
-
-document.getElementById('btn-scan').addEventListener('click', refreshProject);
-document.getElementById('btn-test').addEventListener('click', async () => {
-  // M2: will trigger real test pipeline
-  try {
-    await fetch('/api/agents/tester-croc/task', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task: 'Running E2E tests...' }),
-    });
-  } catch (e) {
-    console.error('Failed to start test:', e);
-  }
-});
-
-// ============ Init ============
-
-(async () => {
-  setupCanvasInteraction();
-  await fetchProject();
-  connectWS();
-
-  // Handle resize
-  window.addEventListener('resize', () => {
-    layoutGraph();
+function setupCanvas(){
+  const c=document.getElementById('graph-canvas');
+  c.addEventListener('mousedown',e=>{S.dragging=true;S.dragStart={x:e.clientX-S.pan.x,y:e.clientY-S.pan.y};c.style.cursor='grabbing';});
+  c.addEventListener('mousemove',e=>{
+    if(S.dragging){S.pan.x=e.clientX-S.dragStart.x;S.pan.y=e.clientY-S.dragStart.y;renderCanvas();}
+    const rect=c.getBoundingClientRect(),mx=(e.clientX-rect.left-S.pan.x)/S.zoom,my=(e.clientY-rect.top-S.pan.y)/S.zoom;
+    let hit=null;
+    for(const n of S.graph.nodes){const p=S.nodePos.get(n.id);if(!p)continue;const sz=n.type==='module'?22:14;if(mx>=p.x-sz&&mx<=p.x+sz&&my>=p.y-sz&&my<=p.y+sz){hit=n;break;}}
+    const tt=document.getElementById('tooltip');
+    if(hit){
+      S.hoveredNode=hit.id;
+      const sc={idle:'#888',testing:'#f39c12',passed:'#4ecca3',failed:'#e94560'};
+      tt.innerHTML='<b>'+esc(hit.label||hit.id)+'</b><br>Type: '+hit.type+'<br>Status: <span style="color:'+(sc[hit.status]||'#888')+'">'+hit.status+'</span>'+(hit.module?'<br>Module: '+esc(hit.module):'');
+      tt.style.left=(e.clientX+12)+'px';tt.style.top=(e.clientY+12)+'px';tt.classList.add('visible');c.style.cursor='pointer';
+    }else{if(S.hoveredNode)S.hoveredNode=null;tt.classList.remove('visible');if(!S.dragging)c.style.cursor='grab';}
     renderCanvas();
   });
-})();
+  c.addEventListener('mouseup',()=>{S.dragging=false;c.style.cursor='grab';});
+  c.addEventListener('mouseleave',()=>{S.dragging=false;document.getElementById('tooltip').classList.remove('visible');});
+  c.addEventListener('wheel',e=>{e.preventDefault();S.zoom=Math.max(.2,Math.min(3,S.zoom*(e.deltaY>0?.92:1.08)));renderCanvas();},{passive:false});
+}
+
+function updateAll(){
+  if(S.project){
+    document.getElementById('s-mod').textContent=S.project.stats?.modules||0;
+    document.getElementById('s-mdl').textContent=S.project.stats?.models||0;
+    document.getElementById('s-api').textContent=S.project.stats?.endpoints||0;
+  }
+  renderModList();renderOffice();renderAgentSB();renderCanvas();
+}
+function renderModList(){
+  const el=document.getElementById('mod-list'),mods=S.graph.nodes.filter(n=>n.type==='module');
+  if(!mods.length){el.innerHTML='<div style="padding:8px;color:#555;font-size:10px">No modules found</div>';return;}
+  el.innerHTML=mods.map(m=>'<div class="mod-item"><div class="dot '+m.status+'"></div>'+esc(m.label||m.id.replace('module:',''))+'</div>').join('');
+}
+function renderAgentSB(){
+  document.getElementById('agent-sidebar').innerHTML=S.agents.map(a=>
+    '<div class="mod-item"><div class="dot '+a.status+'"></div>'+esc(a.name)+' <span style="color:#555;font-size:9px">'+a.status+'</span></div>'
+  ).join('');
+}
+function renderOffice(){
+  const dd={parser:'💻',analyzer:'📊',tester:'🧪',healer:'🔧',planner:'📋',reporter:'📝'};
+  document.getElementById('croc-office').innerHTML=S.agents.map(a=>{
+    const prog=typeof a.progress==='number'?a.progress:0;
+    return '<div class="desk '+a.status+'"><div class="badge dot '+a.status+'"></div>'+
+      '<div class="croc-sprite">🐊</div><div class="croc-name">'+esc(a.name)+'</div>'+
+      '<div class="croc-role">'+esc(a.role)+'</div>'+
+      '<div class="croc-task">'+(a.currentTask?esc(a.currentTask):'')+'</div>'+
+      '<div class="progress-bar"><div class="fill" style="width:'+prog+'%"></div></div>'+
+      '<div class="desk-items">'+(dd[a.role]||'')+'</div></div>';
+  }).join('');
+}
+function esc(s){return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'';}
+
+document.getElementById('btn-scan').addEventListener('click',doScan);
+document.getElementById('btn-pipeline').addEventListener('click',doPipeline);
+document.getElementById('btn-reset').addEventListener('click',doReset);
+
+(async()=>{setupCanvas();await fetchProject();connectWS();addLog('🐊 OpenCroc Studio ready');
+window.addEventListener('resize',()=>{layoutGraph();renderCanvas();});})();
 </script>
 </body>
 </html>

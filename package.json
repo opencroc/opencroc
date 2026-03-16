@@ -1,15 +1,21 @@
 {
   "name": "opencroc",
-  "version": "1.7.0",
-  "description": "AI-native E2E testing framework — source-aware test generation, intelligent validation, and self-healing",
+  "version": "1.8.0",
+  "description": "AI-native project intelligence platform — universal scanner, knowledge graph, risk analysis, multi-perspective reports, and E2E testing",
   "keywords": [
+    "project-intelligence",
+    "knowledge-graph",
+    "code-analysis",
+    "risk-detection",
     "e2e",
     "testing",
     "ai",
     "playwright",
     "test-generation",
     "self-healing",
-    "source-aware"
+    "source-aware",
+    "multi-language",
+    "scanner"
   ],
   "homepage": "https://opencroc.com",
   "bugs": {

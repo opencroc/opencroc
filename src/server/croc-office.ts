@@ -1,16 +1,22 @@
 import type { WebSocket } from 'ws';
 import type { OpenCrocConfig, PipelineRunResult, GeneratedTestFile, ExecutionMetrics, ReportOutput } from '../types.js';
 import type { BackendStatus, ExecutionQualityGateResult, ExecutionRunMode, AuthStatus } from '../execution/types.js';
+import type { ScanResult } from '../graph/types.js';
+import type { SummonPlan } from '../agents/task-router.js';
 
 export interface CrocAgent {
   id: string;
   name: string;
-  role: 'parser' | 'analyzer' | 'tester' | 'healer' | 'planner' | 'reporter';
+  role: string;  // expanded from fixed union to allow dynamic roles
   sprite: string;
   status: 'idle' | 'working' | 'thinking' | 'done' | 'error';
   currentTask?: string;
   tokensUsed: number;
   progress?: number; // 0-100
+  /** Dynamic role metadata */
+  category?: string;
+  color?: string;
+  description?: string;
 }
 
 export interface KnowledgeGraphNode {
@@ -329,6 +335,72 @@ export class CrocOffice {
       }
     }
     this.broadcast('agent:update', this.agents);
+  }
+
+  /**
+   * Dynamically summon crocs based on a project scan result.
+   * Core 6 are always present; additional expert crocs are added based on project characteristics.
+   */
+  async summonForProject(scan: ScanResult, riskCategories: string[] = []): Promise<SummonPlan> {
+    const { planSummon } = await import('../agents/task-router.js');
+    const plan = planSummon(scan, 8, riskCategories);
+
+    // Reset to core agents first
+    const coreIds = new Set(DEFAULT_AGENTS.map(a => a.id));
+    this.agents = DEFAULT_AGENTS.map((a) => ({ ...a }));
+
+    // Add dynamic roles
+    for (const summoned of plan.roles) {
+      if (coreIds.has(summoned.role.id)) continue; // Skip core — already added
+
+      const agent: CrocAgent = {
+        id: summoned.role.id,
+        name: summoned.role.name,
+        role: summoned.role.id.replace(/-croc$/, ''),
+        sprite: summoned.role.sprite,
+        status: 'idle',
+        tokensUsed: 0,
+        category: summoned.role.category,
+        color: summoned.role.color,
+        description: summoned.role.description,
+      };
+      this.agents.push(agent);
+    }
+
+    // Broadcast the full agent list
+    this.broadcast('agent:update', this.agents);
+
+    // Log the summon plan
+    for (const line of plan.reasoning) {
+      this.log(line);
+    }
+    this.log(`🐊 共召唤 ${this.agents.length} 个鳄鱼专家 (${plan.roles.length - DEFAULT_AGENTS.length} 个动态角色)`);
+
+    // Animate the summoning — stagger agent assignments
+    const dynamicAgents = this.agents.filter(a => !coreIds.has(a.id));
+    for (let i = 0; i < dynamicAgents.length; i++) {
+      const agent = dynamicAgents[i]!;
+      setTimeout(() => {
+        this.updateAgent(agent.id, { status: 'working', currentTask: '分析项目中…' });
+        setTimeout(() => {
+          this.updateAgent(agent.id, { status: 'idle', currentTask: undefined });
+        }, 2000 + Math.random() * 1000);
+      }, 300 * i);
+    }
+
+    return plan;
+  }
+
+  /** Get the current summon plan context */
+  getSummonPlan(): { agentCount: number; coreCount: number; dynamicCount: number; agents: CrocAgent[] } {
+    const coreIds = new Set(DEFAULT_AGENTS.map(a => a.id));
+    const coreCount = this.agents.filter(a => coreIds.has(a.id)).length;
+    return {
+      agentCount: this.agents.length,
+      coreCount,
+      dynamicCount: this.agents.length - coreCount,
+      agents: this.agents,
+    };
   }
 
   /** Get last pipeline result */

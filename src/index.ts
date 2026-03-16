@@ -225,3 +225,9 @@ export {
   generateReport as generateInsightReport,
   simulateScenario,
 } from './insight/index.js';
+
+// --- Agents (Dynamic Role System) ---
+export { getRoleRegistry, RoleRegistry } from './agents/role-registry.js';
+export { planSummon, buildMatchContext } from './agents/task-router.js';
+export type { RoleDefinition, RoleCategory, RoleTrigger, MatchContext } from './agents/role-registry.js';
+export type { SummonPlan, SummonedRole } from './agents/task-router.js';

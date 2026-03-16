@@ -12,6 +12,7 @@ import { buildKnowledgeGraph, getGraphStats, toMermaid } from '../../graph/index
 import { analyzeRisks, analyzeImpact, generateReport } from '../../insight/index.js';
 import type {
   ReportPerspective,
+  ScanResult,
 } from '../../graph/types.js';
 import type { CrocOffice } from '../croc-office.js';
 import {
@@ -30,6 +31,8 @@ export function registerStudioRoutes(
   snapshotStore?: StudioSnapshotStore,
 ): void {
   const store = restoreStore(snapshotStore);
+  // Transient — not persisted in snapshots
+  let lastScanResult: ScanResult | null = null;
 
   if (store.graph) {
     office.log(`♻️ Restored Studio snapshot: ${store.graph.nodes.length} nodes, ${store.risks.length} risks`, 'info');
@@ -118,6 +121,7 @@ export function registerStudioRoutes(
       store.risks = risks;
       store.scanTime = Date.now();
       store.source = target;
+      lastScanResult = scanResult;
       persistStore();
 
       // Broadcast graph update
@@ -454,6 +458,100 @@ export function registerStudioRoutes(
       ok: true,
       hasCurrent: Boolean(current?.graph),
       snapshots: snapshotStore.list(),
+    };
+  });
+
+  // ===== GET /api/studio/roles — List all registered croc roles =====
+  app.get('/api/studio/roles', async (req) => {
+    const { getRoleRegistry } = await import('../../agents/role-registry.js');
+    const registry = getRoleRegistry();
+    const category = (req.query as Record<string, string>).category;
+    const search = (req.query as Record<string, string>).search;
+
+    let roles = registry.list();
+    if (category) roles = roles.filter(r => r.category === category);
+    if (search) roles = registry.search(search);
+
+    return {
+      total: roles.length,
+      categories: {
+        core: roles.filter(r => r.category === 'core').length,
+        language: roles.filter(r => r.category === 'language').length,
+        framework: roles.filter(r => r.category === 'framework').length,
+        domain: roles.filter(r => r.category === 'domain').length,
+        community: roles.filter(r => r.category === 'community').length,
+      },
+      roles: roles.map(r => ({
+        id: r.id,
+        name: r.name,
+        nameEn: r.nameEn,
+        category: r.category,
+        description: r.description,
+        color: r.color,
+        sprite: r.sprite,
+        priority: r.priority,
+        tags: r.tags,
+        outputType: r.outputType,
+      })),
+    };
+  });
+
+  // ===== POST /api/studio/summon — Dynamically summon crocs for current project =====
+  app.post('/api/studio/summon', async (_req, reply) => {
+    if (!lastScanResult) {
+      reply.code(400).send({ error: 'No project scanned. Run /api/studio/scan first.' });
+      return;
+    }
+
+    const riskCategories = [...new Set(store.risks.map(r => r.category))];
+    const plan = await office.summonForProject(lastScanResult, riskCategories);
+
+    return {
+      ok: true,
+      totalAgents: office.getAgents().length,
+      coreAgents: 6,
+      dynamicAgents: office.getAgents().length - 6,
+      reasoning: plan.reasoning,
+      agents: office.getAgents().map(a => ({
+        id: a.id,
+        name: a.name,
+        role: a.role,
+        sprite: a.sprite,
+        status: a.status,
+        category: a.category,
+        color: a.color,
+        description: a.description,
+      })),
+      context: {
+        languages: plan.context.languages,
+        frameworks: plan.context.frameworks,
+        projectType: plan.context.projectType,
+        entityCount: plan.context.entityCount,
+        hasAPIs: plan.context.hasAPIs,
+        hasModels: plan.context.hasModels,
+        hasFrontend: plan.context.hasFrontend,
+        hasDocker: plan.context.hasDocker,
+        hasCI: plan.context.hasCI,
+      },
+    };
+  });
+
+  // ===== GET /api/studio/agents — Current agent roster =====
+  app.get('/api/studio/agents', async () => {
+    const info = office.getSummonPlan();
+    return {
+      ...info,
+      agents: info.agents.map(a => ({
+        id: a.id,
+        name: a.name,
+        role: a.role,
+        sprite: a.sprite,
+        status: a.status,
+        currentTask: a.currentTask,
+        category: a.category,
+        color: a.color,
+        description: a.description,
+      })),
     };
   });
 }

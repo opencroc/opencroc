@@ -385,6 +385,12 @@ const ICONS={
   reporter:'<svg viewBox="0 0 16 16" fill="none"><polyline points="2,12 5,6 8,9 11,4 14,7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 const ROLE_ICONS={parser:ICONS.parser,analyzer:ICONS.analyzer,tester:ICONS.tester,healer:ICONS.healer,planner:ICONS.planner,reporter:ICONS.reporter};
+const DYNAMIC_ROLE_ICONS={
+  security:'🛡️',performance:'⚡',architecture:'🏗️','data-modeling':'🗄️',devops:'🚀','api-design':'📡',refactor:'♻️',microservice:'🔌',
+  python:'🐍',go:'🦫',java:'☕',rust:'🦀',
+  react:'⚛️',vue:'💚',express:'📦',django:'🎸',springboot:'🍃',
+};
+function resolveRoleIcon(name){return ROLE_ICONS[name]||DYNAMIC_ROLE_ICONS[name]||'🐊'}
 const BUBBLE_TEXTS={
   working:['正在执行...','快了快了','处理中...','加油 💪'],testing:['跑测试中...','验证 API...','等结果...'],
   thinking:['让我想想...','分析中...','推理...','🤔'],error:['出错了!','修复中...','糟糕...','排查问题...'],
@@ -395,7 +401,7 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 
 /* ─── Managers ─────────────────────────────────────────────────────────────── */
 const state=new StateManager();
-const ui=new UIManager(state,{ICONS,ROLE_ICONS,BUBBLE_TEXTS,esc});
+const ui=new UIManager(state,{ICONS,ROLE_ICONS,DYNAMIC_ROLE_ICONS,resolveRoleIcon,BUBBLE_TEXTS,esc});
 let agentMgr, particleMgr, camCtrl, graphViz, hologram;
 
 /* ─── Boot ─────────────────────────────────────────────────────────────────── */
@@ -475,6 +481,17 @@ try{
     ui.addLog(`📊 知识图谱: ${sd.stats?.totalNodes||0} 节点, ${sd.stats?.totalEdges||0} 边, ${sd.risks||0} 风险`,'success',true);
     ui.showToast(`知识图谱已构建: ${sd.stats?.totalNodes||0} 节点`,'success');
     updateStudioStats(sd);
+    /* Auto-summon dynamic croc experts based on project characteristics */
+    try{
+      const sr=await fetch('/api/studio/summon',{method:'POST'});
+      if(sr.ok){const sp=await sr.json();
+        if(sp.dynamicAgents>0){
+          ui.addLog(`🐊 动态召唤 ${sp.dynamicAgents} 个专家鳄鱼 (共 ${sp.totalAgents} 个)`,'success',true);
+          ui.showToast(`${sp.dynamicAgents} 个专家鳄鱼已就位`,'success');
+          sp.reasoning?.forEach(r=>ui.addLog('  '+r,'info'));
+        }
+      }
+    }catch(e3){ui.addLog('动态召唤跳过: '+e3.message,'warning')}
   }
 }catch(e2){ui.addLog('Studio scan skipped: '+e2.message,'warning')}
 }catch(e){ui.addLog('Scan error: '+e.message,'error');state.set({running:false});updateBtns()}}

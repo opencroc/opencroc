@@ -4,15 +4,15 @@
    ═══════════════════════════════════════════════════════════════════════════════ */
 
 const STATUS_LABEL = {
-  idle: '空闲', scanning: '扫描中', navigating: '导航中',
+  idle: '空闲', working: '工作中', scanning: '扫描中', navigating: '导航中',
   interacting: '交互中', asserting: '断言中', reporting: '报告中',
-  thinking: '思考中', complete: '完成', error: '错误',
+  thinking: '思考中', complete: '完成', done: '完成', error: '错误',
 };
 
 const STATUS_DOT_CLASS = {
-  idle: 'dot-idle', scanning: 'dot-active', navigating: 'dot-active',
+  idle: 'dot-idle', working: 'dot-active', scanning: 'dot-active', navigating: 'dot-active',
   interacting: 'dot-active', asserting: 'dot-active', reporting: 'dot-active',
-  thinking: 'dot-active', complete: 'dot-ok', error: 'dot-err',
+  thinking: 'dot-active', complete: 'dot-ok', done: 'dot-ok', error: 'dot-err',
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -27,6 +27,7 @@ export class UIManager {
     this._logCount = 0;
     this._esc = options?.esc || (s => String(s));
     this._ROLE_ICONS = options?.ROLE_ICONS || {};
+    this._resolveIcon = options?.resolveRoleIcon || (name => this._ROLE_ICONS[name] || '🐊');
   }
 
   /* ── init: store callbacks (event binding done in index.html) ────────── */
@@ -135,11 +136,13 @@ export class UIManager {
       entries.forEach(agent => {
         const name = agent.name || agent.role || '';
         const status = agent.status || 'idle';
+        const role = agent.role || name;
         const item = document.createElement('div');
         item.className = 'agent-sidebar-item';
+        const category = agent.category ? ` <span style="font-size:9px;color:var(--text-subtle);opacity:0.7">${this._esc(agent.category)}</span>` : '';
         item.innerHTML = `
-          <span class="agent-icon">${this._ROLE_ICONS[name] || '🤖'}</span>
-          <span class="agent-name">${this._esc(name)}</span>
+          <span class="agent-icon">${this._resolveIcon(role)}</span>
+          <span class="agent-name">${this._esc(name)}${category}</span>
           <span class="agent-status-dot ${STATUS_DOT_CLASS[status] || 'dot-idle'}"></span>
           <span class="agent-status-text">${STATUS_LABEL[status] || status}</span>
         `;
@@ -179,8 +182,9 @@ export class UIManager {
   _renderDeskCard(name, info) {
     const status = info.status || 'idle';
     const progress = info.progress || 0;
+    const role = info.role || name;
     return `
-      <div class="dc-icon">${this._ROLE_ICONS[name] || '🤖'}</div>
+      <div class="dc-icon">${this._resolveIcon(role)}</div>
       <div class="dc-name">${this._esc(name)}</div>
       <div class="dc-status ${STATUS_DOT_CLASS[status] || ''}">${STATUS_LABEL[status] || status}</div>
       <div class="dc-bar"><div class="dc-fill" style="width:${progress}%"></div></div>

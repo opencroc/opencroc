@@ -309,7 +309,15 @@ export class AgentManager {
      ═════════════════════════════════════════════════════════════════════════ */
   _createRobot(agentData, index, total) {
     const role = agentData.role || 'parser';
-    const colors = ROLE_COLORS[role] || DEFAULT_COLORS;
+    // Support dynamic color from server (hex string like '#60a5fa')
+    let colors = ROLE_COLORS[role] || DEFAULT_COLORS;
+    if (agentData.color && !ROLE_COLORS[role]) {
+      const hex = parseInt(agentData.color.replace('#', ''), 16);
+      if (!isNaN(hex)) {
+        const lighter = new THREE.Color(hex).lerp(new THREE.Color(0xffffff), 0.35).getHex();
+        colors = { body: hex, accent: hex, eye: lighter, glow: hex };
+      }
+    }
     const group = new THREE.Group();
     group.name = `agent-${agentData.name}`;
 

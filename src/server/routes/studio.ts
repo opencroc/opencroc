@@ -11,28 +11,52 @@ import { cloneAndScan } from '../../scanner/github-cloner.js';
 import { buildKnowledgeGraph, getGraphStats, toMermaid } from '../../graph/index.js';
 import { analyzeRisks, analyzeImpact, generateReport } from '../../insight/index.js';
 import type {
-  KnowledgeGraph,
-  RiskAnnotation,
   ReportPerspective,
 } from '../../graph/types.js';
 import type { CrocOffice } from '../croc-office.js';
+import {
+  EMPTY_STUDIO_STORE,
+  type StudioProjectStore,
+  type StudioSnapshotStore,
+} from '../studio-store.js';
 
-/** In-memory store for scanned projects */
-interface ProjectStore {
-  graph: KnowledgeGraph | null;
-  risks: RiskAnnotation[];
-  scanTime: number;
-  source: string;
+function restoreStore(snapshotStore?: StudioSnapshotStore): StudioProjectStore {
+  return snapshotStore?.load() ?? { ...EMPTY_STUDIO_STORE };
 }
 
-const store: ProjectStore = {
-  graph: null,
-  risks: [],
-  scanTime: 0,
-  source: '',
-};
+export function registerStudioRoutes(
+  app: FastifyInstance,
+  office: CrocOffice,
+  snapshotStore?: StudioSnapshotStore,
+): void {
+  const store = restoreStore(snapshotStore);
 
-export function registerStudioRoutes(app: FastifyInstance, office: CrocOffice): void {
+  if (store.graph) {
+    office.log(`♻️ Restored Studio snapshot: ${store.graph.nodes.length} nodes, ${store.risks.length} risks`, 'info');
+  }
+
+  const persistStore = () => {
+    snapshotStore?.save(store);
+  };
+
+  const broadcastGraph = () => {
+    if (!store.graph) return;
+
+    office.broadcast('graph:update', {
+      nodes: store.graph.nodes.map(n => ({
+        id: n.id,
+        label: n.label,
+        type: n.type,
+        module: n.module,
+        status: n.status,
+      })),
+      edges: store.graph.edges.map(e => ({
+        source: e.source,
+        target: e.target,
+        relation: e.relation,
+      })),
+    });
+  };
 
   // ===== POST /api/studio/scan — Scan a project (local path or GitHub URL) =====
   app.post<{
@@ -94,22 +118,10 @@ export function registerStudioRoutes(app: FastifyInstance, office: CrocOffice): 
       store.risks = risks;
       store.scanTime = Date.now();
       store.source = target;
+      persistStore();
 
       // Broadcast graph update
-      office.broadcast('graph:update', {
-        nodes: graph.nodes.map(n => ({
-          id: n.id,
-          label: n.label,
-          type: n.type,
-          module: n.module,
-          status: n.status,
-        })),
-        edges: graph.edges.map(e => ({
-          source: e.source,
-          target: e.target,
-          relation: e.relation,
-        })),
-      });
+      broadcastGraph();
 
       return {
         ok: true,
@@ -289,6 +301,159 @@ export function registerStudioRoutes(app: FastifyInstance, office: CrocOffice): 
       stats,
       topRisks: store.risks.slice(0, 5).map(r => ({ severity: r.severity, title: r.title })),
       source: store.source,
+    };
+  });
+
+  // ===== GET /api/studio/snapshots — List available snapshots =====
+  app.get('/api/studio/snapshots', async () => {
+    const snapshots = snapshotStore?.list() ?? [];
+    return {
+      total: snapshots.length,
+      snapshots,
+    };
+  });
+
+  // ===== POST /api/studio/snapshots/:id/load — Restore a snapshot =====
+  app.post<{
+    Params: { id: string };
+  }>('/api/studio/snapshots/:id/load', async (req, reply) => {
+    if (!snapshotStore) {
+      reply.code(501).send({ error: 'Snapshot persistence is not configured.' });
+      return;
+    }
+
+    const restored = snapshotStore.loadById(req.params.id);
+    if (!restored) {
+      reply.code(404).send({ error: 'Snapshot not found.' });
+      return;
+    }
+
+    store.graph = restored.graph;
+    store.risks = restored.risks;
+    store.scanTime = restored.scanTime;
+    store.source = restored.source;
+    office.log(`♻️ Restored snapshot: ${store.source || 'unknown source'}`, 'info');
+    broadcastGraph();
+
+    return {
+      ok: true,
+      source: store.source,
+      scanTime: store.scanTime,
+      graph: store.graph ? {
+        nodeCount: store.graph.nodes.length,
+        edgeCount: store.graph.edges.length,
+      } : null,
+      risks: store.risks.length,
+    };
+  });
+
+  // ===== POST /api/studio/snapshots/:id/rename — Rename a snapshot =====
+  app.post<{
+    Params: { id: string };
+    Body: { name?: string };
+  }>('/api/studio/snapshots/:id/rename', async (req, reply) => {
+    if (!snapshotStore) {
+      reply.code(501).send({ error: 'Snapshot persistence is not configured.' });
+      return;
+    }
+
+    const name = req.body?.name?.trim();
+    if (!name) {
+      reply.code(400).send({ error: 'Snapshot name is required.' });
+      return;
+    }
+
+    const renamed = snapshotStore.rename(req.params.id, name);
+    if (!renamed) {
+      reply.code(404).send({ error: 'Snapshot not found.' });
+      return;
+    }
+
+    return {
+      ok: true,
+      snapshots: snapshotStore.list(),
+    };
+  });
+
+  // ===== POST /api/studio/snapshots/:id/pin — Pin or unpin a snapshot =====
+  app.post<{
+    Params: { id: string };
+    Body: { pinned?: boolean };
+  }>('/api/studio/snapshots/:id/pin', async (req, reply) => {
+    if (!snapshotStore) {
+      reply.code(501).send({ error: 'Snapshot persistence is not configured.' });
+      return;
+    }
+
+    const pinned = Boolean(req.body?.pinned);
+    const updated = snapshotStore.pin(req.params.id, pinned);
+    if (!updated) {
+      reply.code(404).send({ error: 'Snapshot not found.' });
+      return;
+    }
+
+    return {
+      ok: true,
+      snapshots: snapshotStore.list(),
+    };
+  });
+
+  // ===== POST /api/studio/snapshots/:id/tags — Replace snapshot tags =====
+  app.post<{
+    Params: { id: string };
+    Body: { tags?: string[] };
+  }>('/api/studio/snapshots/:id/tags', async (req, reply) => {
+    if (!snapshotStore) {
+      reply.code(501).send({ error: 'Snapshot persistence is not configured.' });
+      return;
+    }
+
+    const rawTags: string[] = Array.isArray(req.body?.tags) ? req.body.tags : [];
+    const tags = [...new Set(rawTags
+      .map((tag: string) => typeof tag === 'string' ? tag.trim() : '')
+      .filter(Boolean)
+    )];
+
+    const updated = snapshotStore.updateTags(req.params.id, tags);
+    if (!updated) {
+      reply.code(404).send({ error: 'Snapshot not found.' });
+      return;
+    }
+
+    return {
+      ok: true,
+      snapshots: snapshotStore.list(),
+    };
+  });
+
+  // ===== POST /api/studio/snapshots/:id/delete — Delete a snapshot =====
+  app.post<{
+    Params: { id: string };
+  }>('/api/studio/snapshots/:id/delete', async (req, reply) => {
+    if (!snapshotStore) {
+      reply.code(501).send({ error: 'Snapshot persistence is not configured.' });
+      return;
+    }
+
+    const deleted = snapshotStore.delete(req.params.id);
+    if (!deleted) {
+      reply.code(404).send({ error: 'Snapshot not found.' });
+      return;
+    }
+
+    const current = snapshotStore.load();
+    store.graph = current?.graph ?? null;
+    store.risks = current?.risks ?? [];
+    store.scanTime = current?.scanTime ?? 0;
+    store.source = current?.source ?? '';
+    if (store.graph) {
+      broadcastGraph();
+    }
+
+    return {
+      ok: true,
+      hasCurrent: Boolean(current?.graph),
+      snapshots: snapshotStore.list(),
     };
   });
 }

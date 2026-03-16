@@ -8,6 +8,7 @@ import { registerProjectRoutes } from './routes/project.js';
 import { registerAgentRoutes } from './routes/agents.js';
 import { registerStudioRoutes } from './routes/studio.js';
 import { CrocOffice } from './croc-office.js';
+import { FileStudioSnapshotStore } from './studio-store.js';
 import type { OpenCrocConfig } from '../types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,11 +40,12 @@ export async function startServer(opts: ServeOptions): Promise<void> {
 
   // --- Croc Office (Agent orchestrator) ---
   const office = new CrocOffice(opts.config, opts.cwd);
+  const snapshotStore = new FileStudioSnapshotStore(resolve(opts.cwd, '.opencroc/studio-snapshot.json'));
 
   // --- REST API routes ---
   registerProjectRoutes(app, office);
   registerAgentRoutes(app, office);
-  registerStudioRoutes(app, office);
+  registerStudioRoutes(app, office, snapshotStore);
 
   // --- WebSocket endpoint for real-time updates ---
   app.register(async (fastify) => {

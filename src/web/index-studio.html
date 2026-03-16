@@ -124,6 +124,39 @@ body {
 .risk-medium { background: var(--warning); color: #000; }
 .risk-low { background: var(--info); color: #fff; }
 
+.snapshot-list { list-style: none; }
+.snapshot-search { width: 100%; margin-bottom: 8px; }
+.snapshot-tag-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.snapshot-tag-chip {
+  border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary);
+  border-radius: 999px; padding: 2px 8px; font-size: 10px; cursor: pointer;
+}
+.snapshot-tag-chip.active { border-color: var(--accent); color: var(--accent); }
+.snapshot-item {
+  padding: 8px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  margin-bottom: 6px;
+  border: 1px solid transparent;
+}
+.snapshot-item.current {
+  border-color: var(--accent);
+}
+.snapshot-item.pinned {
+  box-shadow: inset 0 0 0 1px rgba(78, 204, 163, 0.35);
+}
+.snapshot-name { font-size: 12px; font-weight: bold; }
+.snapshot-meta { font-size: 10px; color: var(--text-secondary); margin-top: 4px; }
+.snapshot-actions { margin-top: 6px; display: flex; justify-content: flex-end; }
+.snapshot-actions .btn { margin-left: 6px; }
+.snapshot-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.snapshot-tag {
+  display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 999px;
+  background: rgba(78, 204, 163, 0.12); color: var(--accent); font-size: 10px;
+  border: 1px solid transparent; cursor: pointer;
+}
+.snapshot-tag:hover { border-color: rgba(78, 204, 163, 0.45); }
+
 /* ===== Graph Canvas ===== */
 #graph-canvas { width: 100%; height: 100%; background: var(--bg-primary); }
 
@@ -194,6 +227,95 @@ body {
   display: none;
 }
 .tooltip.visible { display: block; }
+
+.graph-empty {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+  display: none;
+}
+
+.graph-empty.visible { display: block; }
+
+.node-type-item.active {
+  background: var(--bg-card);
+  border: 1px solid var(--accent);
+}
+
+.report-mermaid,
+.report-viz {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin: 10px 0;
+  overflow: auto;
+}
+
+.event-log {
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+.event-log-row {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 0;
+}
+
+.event-log-toolbar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.event-log-filter.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.event-log-level-info { color: var(--info); }
+.event-log-level-warn { color: var(--warning); }
+.event-log-level-error { color: var(--danger); }
+
+.relation-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.relation-summary .stat-item {
+  border: 1px solid var(--border);
+}
+
+.report-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 auto 12px;
+  max-width: 800px;
+}
+
+.report-toolbar-left {
+  display: flex;
+  gap: 6px;
+}
+
+.report-mode.active {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+  font-weight: bold;
+}
 </style>
 </head>
 <body>
@@ -236,6 +358,13 @@ body {
       <ul class="node-type-list" id="node-type-list"></ul>
     </div>
 
+    <div class="sidebar-section" id="snapshot-section" style="display:none">
+      <h3>快照</h3>
+      <input id="snapshot-search" class="scan-input snapshot-search" placeholder="搜索快照名称或来源" />
+      <div class="snapshot-tag-filters" id="snapshot-tag-filters"></div>
+      <ul class="snapshot-list" id="snapshot-list"></ul>
+    </div>
+
     <!-- Risks -->
     <div class="sidebar-section" id="risk-section" style="display:none;flex:1;overflow-y:auto">
       <h3>风险点 <span id="risk-count" style="color:var(--danger)"></span></h3>
@@ -258,6 +387,7 @@ body {
         <div class="perspective-tab" data-perspective="executive">📈 管理层</div>
       </div>
       <div class="header-actions">
+        <button class="btn btn-icon" onclick="focusOnSelectedNode()" title="聚焦选中节点">🎯</button>
         <button class="btn btn-icon" onclick="toggleTheme()" title="切换主题">🎨</button>
         <button class="btn btn-icon" onclick="togglePanel()" title="详情面板">📋</button>
       </div>
@@ -288,9 +418,18 @@ body {
 
       <!-- SVG Graph Canvas -->
       <svg id="graph-canvas"></svg>
+      <div class="graph-empty visible" id="graph-empty">暂无图谱数据，先在左侧输入路径并扫描</div>
 
       <!-- Report View (hidden by default) -->
       <div id="report-view" style="display:none;padding:24px;overflow-y:auto;height:100%;background:var(--bg-primary)">
+        <div class="report-toolbar" id="report-toolbar" style="display:none">
+          <div class="report-toolbar-left">
+            <button class="btn btn-sm report-mode active" data-mode="markdown">Markdown</button>
+            <button class="btn btn-sm report-mode" data-mode="mermaid">Mermaid</button>
+            <button class="btn btn-sm report-mode" data-mode="raw">Raw</button>
+          </div>
+          <button class="btn btn-sm" id="copy-report-btn">复制当前内容</button>
+        </div>
         <div id="report-content" style="max-width:800px;margin:0 auto"></div>
       </div>
     </div>
@@ -325,8 +464,24 @@ let graphData = { nodes: [], edges: [] };
 let riskData = [];
 let currentTheme = 'pixel';
 let selectedNode = null;
-let simulation = null; // Force simulation
 let transform = { x: 0, y: 0, scale: 1 };
+let activeTypeFilter = null;
+let wsClient = null;
+let reconnectTimer = null;
+let reportCache = new Map();
+let eventLog = [];
+let currentReport = null;
+let currentReportMode = 'markdown';
+let currentReportPerspective = null;
+let currentLogFilter = 'all';
+let eventLogRenderScheduled = false;
+let graphRenderScheduled = false;
+let latestAgentPayload = null;
+let agentUpdateScheduled = false;
+let snapshotList = [];
+let snapshotQuery = '';
+let activeSnapshotTags = [];
+const MAX_EVENT_LOG_ROWS = 180;
 
 // Node type colors
 const TYPE_COLORS = {
@@ -362,9 +517,14 @@ function startScanFromWelcome() {
 }
 
 async function doScan(target) {
+  reportCache.clear();
+  currentReport = null;
+  currentReportPerspective = null;
   document.getElementById('welcome').classList.add('hidden');
   document.getElementById('loading').classList.remove('hidden');
   document.getElementById('loading-text').textContent = '正在扫描 ' + target + '...';
+  document.getElementById('loading-detail').textContent = '初始化扫描任务...';
+  appendOperationLog('开始扫描: ' + target, 'info');
 
   try {
     const res = await fetch('/api/studio/scan', {
@@ -376,6 +536,7 @@ async function doScan(target) {
 
     if (!res.ok) {
       document.getElementById('loading-text').textContent = '❌ ' + (data.error || '扫描失败');
+      appendOperationLog('扫描失败: ' + (data.error || 'unknown error'), 'error');
       setTimeout(() => document.getElementById('loading').classList.add('hidden'), 3000);
       return;
     }
@@ -384,19 +545,24 @@ async function doScan(target) {
     await loadGraph();
     await loadRisks();
     await loadSummary();
+    await loadSnapshots();
 
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('stats-section').style.display = '';
     document.getElementById('filter-section').style.display = '';
+    document.getElementById('snapshot-section').style.display = '';
     document.getElementById('risk-section').style.display = '';
+    appendOperationLog('扫描完成，图谱已更新', 'info');
   } catch (err) {
     document.getElementById('loading-text').textContent = '❌ ' + err.message;
+    appendOperationLog('扫描异常: ' + err.message, 'error');
     setTimeout(() => document.getElementById('loading').classList.add('hidden'), 3000);
   }
 }
 
 async function loadGraph() {
   const res = await fetch('/api/studio/graph');
+  if (!res.ok) return;
   const data = await res.json();
   graphData = data;
   renderGraph();
@@ -405,6 +571,7 @@ async function loadGraph() {
 
 async function loadRisks() {
   const res = await fetch('/api/studio/risks');
+  if (!res.ok) return;
   const data = await res.json();
   riskData = data.risks || [];
   renderRiskList();
@@ -414,6 +581,7 @@ async function loadRisks() {
 
 async function loadSummary() {
   const res = await fetch('/api/studio/summary');
+  if (!res.ok) return;
   const data = await res.json();
   document.getElementById('project-name').textContent = data.name || '—';
   document.getElementById('project-type').textContent = data.oneLiner || '';
@@ -426,43 +594,79 @@ async function loadSummary() {
   fill.style.background = data.healthScore >= 80 ? '#4ecca3' : data.healthScore >= 60 ? '#f39c12' : '#e94560';
 }
 
+async function loadSnapshots() {
+  const res = await fetch('/api/studio/snapshots');
+  if (!res.ok) return;
+  const data = await res.json();
+  snapshotList = data.snapshots || [];
+  if (activeSnapshotTags.length) {
+    const allTags = new Set(snapshotList.flatMap((snapshot) => Array.isArray(snapshot.tags) ? snapshot.tags : []));
+    activeSnapshotTags = activeSnapshotTags.filter((tag) => allTags.has(tag));
+  }
+  renderSnapshots();
+}
+
 // ===== Graph Rendering (Force-Directed) =====
 function renderGraph() {
   const svg = document.getElementById('graph-canvas');
+  const empty = document.getElementById('graph-empty');
   const { width, height } = svg.getBoundingClientRect();
   svg.innerHTML = '';
 
   const nodes = (graphData.nodes || []).filter(n => n.type !== 'file' && n.type !== 'dependency');
+  const visibleNodes = activeTypeFilter ? nodes.filter(n => n.type === activeTypeFilter) : nodes;
+  const visibleIds = new Set(visibleNodes.map(n => n.id));
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
-  const edges = (graphData.edges || []).filter(e => nodeMap.has(e.source) && nodeMap.has(e.target));
+  const edges = (graphData.edges || []).filter(e => {
+    return nodeMap.has(e.source) && nodeMap.has(e.target) && visibleIds.has(e.source) && visibleIds.has(e.target);
+  });
+  const selectedAdjacent = new Set();
+  if (selectedNode) {
+    selectedAdjacent.add(selectedNode);
+    for (const e of edges) {
+      if (e.source === selectedNode) selectedAdjacent.add(e.target);
+      if (e.target === selectedNode) selectedAdjacent.add(e.source);
+    }
+  }
 
-  if (nodes.length === 0) return;
+  if (visibleNodes.length === 0) {
+    if (empty) {
+      empty.classList.add('visible');
+      empty.textContent = activeTypeFilter
+        ? '当前类型筛选下无可展示节点'
+        : '暂无图谱数据，先在左侧输入路径并扫描';
+    }
+    return;
+  }
+  if (empty) empty.classList.remove('visible');
 
   // Initialize positions (circular layout)
-  nodes.forEach((n, i) => {
-    const angle = (i / nodes.length) * 2 * Math.PI;
+  visibleNodes.forEach((n, i) => {
+    const angle = (i / visibleNodes.length) * 2 * Math.PI;
     const r = Math.min(width, height) * 0.35;
-    n._x = width / 2 + Math.cos(angle) * r;
-    n._y = height / 2 + Math.sin(angle) * r;
-    n._vx = 0;
-    n._vy = 0;
+    if (typeof n._x !== 'number' || typeof n._y !== 'number') {
+      n._x = width / 2 + Math.cos(angle) * r;
+      n._y = height / 2 + Math.sin(angle) * r;
+      n._vx = 0;
+      n._vy = 0;
+    }
   });
 
   // Simple force simulation (run synchronously for speed)
   for (let iter = 0; iter < 80; iter++) {
     // Repulsion between all pairs
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        let dx = nodes[i]._x - nodes[j]._x;
-        let dy = nodes[i]._y - nodes[j]._y;
+    for (let i = 0; i < visibleNodes.length; i++) {
+      for (let j = i + 1; j < visibleNodes.length; j++) {
+        let dx = visibleNodes[i]._x - visibleNodes[j]._x;
+        let dy = visibleNodes[i]._y - visibleNodes[j]._y;
         let dist = Math.sqrt(dx * dx + dy * dy) || 1;
         let force = 800 / (dist * dist);
         let fx = (dx / dist) * force;
         let fy = (dy / dist) * force;
-        nodes[i]._vx += fx;
-        nodes[i]._vy += fy;
-        nodes[j]._vx -= fx;
-        nodes[j]._vy -= fy;
+        visibleNodes[i]._vx += fx;
+        visibleNodes[i]._vy += fy;
+        visibleNodes[j]._vx -= fx;
+        visibleNodes[j]._vy -= fy;
       }
     }
 
@@ -484,7 +688,7 @@ function renderGraph() {
     }
 
     // Center gravity
-    for (const n of nodes) {
+    for (const n of visibleNodes) {
       n._vx += (width / 2 - n._x) * 0.001;
       n._vy += (height / 2 - n._y) * 0.001;
       n._x += n._vx * 0.4;
@@ -500,25 +704,29 @@ function renderGraph() {
   // Render SVG
   const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
   g.setAttribute('id', 'graph-group');
+  const edgeDom = [];
+  const nodeDom = new Map();
 
   // Edges
   for (const e of edges) {
     const s = nodeMap.get(e.source);
     const t = nodeMap.get(e.target);
     if (!s || !t) continue;
+    const active = !selectedNode || e.source === selectedNode || e.target === selectedNode;
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     line.setAttribute('x1', s._x);
     line.setAttribute('y1', s._y);
     line.setAttribute('x2', t._x);
     line.setAttribute('y2', t._y);
-    line.setAttribute('stroke', '#333');
-    line.setAttribute('stroke-width', '1');
-    line.setAttribute('opacity', '0.4');
+    line.setAttribute('stroke', active ? '#4ecca3' : '#333');
+    line.setAttribute('stroke-width', active ? '1.8' : '1');
+    line.setAttribute('opacity', active ? '0.75' : '0.15');
     g.appendChild(line);
+    edgeDom.push({ line, edge: e });
   }
 
   // Nodes
-  for (const n of nodes) {
+  for (const n of visibleNodes) {
     const color = TYPE_COLORS[n.type] || TYPE_COLORS.unknown;
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     group.setAttribute('transform', `translate(${n._x}, ${n._y})`);
@@ -531,7 +739,8 @@ function renderGraph() {
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('r', n.type === 'module' ? 14 : n.type === 'api' || n.type === 'model' ? 10 : 7);
     circle.setAttribute('fill', color);
-    circle.setAttribute('opacity', '0.85');
+    const isDimmed = selectedNode && !selectedAdjacent.has(n.id);
+    circle.setAttribute('opacity', isDimmed ? '0.25' : '0.9');
     circle.setAttribute('stroke', selectedNode === n.id ? '#fff' : 'none');
     circle.setAttribute('stroke-width', '2');
     group.appendChild(circle);
@@ -543,14 +752,45 @@ function renderGraph() {
     text.setAttribute('fill', '#ccc');
     text.setAttribute('font-size', n.type === 'module' ? '11' : '9');
     text.setAttribute('font-family', 'Courier New, monospace');
+    text.setAttribute('opacity', isDimmed ? '0.3' : '1');
     const label = n.label.length > 20 ? n.label.slice(0, 18) + '..' : n.label;
     text.textContent = label;
     group.appendChild(text);
 
+    nodeDom.set(n.id, { group, circle, node: n });
     g.appendChild(group);
   }
 
   svg.appendChild(g);
+
+  const updateEdgeAndNodePositions = () => {
+    for (const e of edges) {
+      const line = edgeDom.find(item => item.edge === e)?.line;
+      if (!line) continue;
+      const s = nodeMap.get(e.source);
+      const t = nodeMap.get(e.target);
+      if (!s || !t) continue;
+      line.setAttribute('x1', String(s._x));
+      line.setAttribute('y1', String(s._y));
+      line.setAttribute('x2', String(t._x));
+      line.setAttribute('y2', String(t._y));
+    }
+
+    for (const item of nodeDom.values()) {
+      item.group.setAttribute('transform', `translate(${item.node._x}, ${item.node._y})`);
+      item.circle.setAttribute('stroke', selectedNode === item.node.id ? '#fff' : 'none');
+    }
+  };
+
+  // Drag node in current view
+  let draggingNode = null;
+  for (const item of nodeDom.values()) {
+    item.group.addEventListener('mousedown', (evt) => {
+      evt.stopPropagation();
+      draggingNode = item;
+      item.circle.setAttribute('stroke', '#fff');
+    });
+  }
 
   // Pan & Zoom
   svg.addEventListener('wheel', (e) => {
@@ -564,6 +804,19 @@ function renderGraph() {
   let dragging = false, lastX, lastY;
   svg.addEventListener('mousedown', (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
   svg.addEventListener('mousemove', (e) => {
+    if (draggingNode) {
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+      const matrix = g.getScreenCTM();
+      if (!matrix) return;
+      const local = pt.matrixTransform(matrix.inverse());
+      draggingNode.node._x = local.x;
+      draggingNode.node._y = local.y;
+      updateEdgeAndNodePositions();
+      return;
+    }
+
     if (!dragging) return;
     transform.x += e.clientX - lastX;
     transform.y += e.clientY - lastY;
@@ -571,13 +824,61 @@ function renderGraph() {
     lastY = e.clientY;
     applyTransform();
   });
-  svg.addEventListener('mouseup', () => { dragging = false; });
-  svg.addEventListener('mouseleave', () => { dragging = false; });
+  svg.addEventListener('mouseup', () => { dragging = false; draggingNode = null; });
+  svg.addEventListener('mouseleave', () => { dragging = false; draggingNode = null; });
+  svg.addEventListener('click', (e) => {
+    if (e.target === svg || e.target.id === 'graph-group') {
+      selectedNode = null;
+      scheduleGraphRender();
+    }
+  });
+
+  applyTransform();
 }
 
 function applyTransform() {
   const g = document.getElementById('graph-group');
   if (g) g.setAttribute('transform', `translate(${transform.x},${transform.y}) scale(${transform.scale})`);
+}
+
+function focusOnSelectedNode() {
+  if (!selectedNode) {
+    appendOperationLog('当前没有选中节点，无法聚焦', 'warn');
+    return;
+  }
+
+  const node = (graphData.nodes || []).find((item) => item.id === selectedNode);
+  const svg = document.getElementById('graph-canvas');
+  if (!node || !svg || typeof node._x !== 'number' || typeof node._y !== 'number') {
+    appendOperationLog('选中节点尚未渲染，无法聚焦', 'warn');
+    return;
+  }
+
+  const { width, height } = svg.getBoundingClientRect();
+  transform.scale = Math.max(1.25, transform.scale);
+  transform.x = width / 2 - node._x * transform.scale;
+  transform.y = height / 2 - node._y * transform.scale;
+  applyTransform();
+  appendOperationLog(`已聚焦节点: ${node.label || node.id}`, 'info');
+}
+
+function scheduleGraphRender() {
+  if (graphRenderScheduled) return;
+  graphRenderScheduled = true;
+  requestAnimationFrame(() => {
+    graphRenderScheduled = false;
+    renderGraph();
+  });
+}
+
+function scheduleAgentRefresh(payload) {
+  latestAgentPayload = payload;
+  if (agentUpdateScheduled) return;
+  agentUpdateScheduled = true;
+  requestAnimationFrame(() => {
+    agentUpdateScheduled = false;
+    updateAgents(latestAgentPayload);
+  });
 }
 
 // ===== Sidebar Renderers =====
@@ -592,11 +893,19 @@ function renderNodeTypeFilter() {
     .sort((a, b) => b[1] - a[1])
     .map(([type, count]) => `
       <li class="node-type-item" onclick="filterByType('${type}')">
+        <span style="display:none" class="node-type-flag">${activeTypeFilter === type ? 'active' : ''}</span>
         <div class="node-type-dot" style="background:${TYPE_COLORS[type] || '#555'}"></div>
         <span>${TYPE_LABELS[type] || type}</span>
         <span class="node-type-count">${count}</span>
       </li>
     `).join('');
+
+  list.querySelectorAll('.node-type-item').forEach((el) => {
+    const flag = el.querySelector('.node-type-flag');
+    if (flag && flag.textContent === 'active') {
+      el.classList.add('active');
+    }
+  });
 }
 
 function renderRiskList() {
@@ -607,6 +916,218 @@ function renderRiskList() {
       ${escapeHtml(r.title)}
     </li>
   `).join('');
+}
+
+function renderSnapshots() {
+  const list = document.getElementById('snapshot-list');
+  const tagFilters = document.getElementById('snapshot-tag-filters');
+  if (!list) return;
+
+  const normalizedQuery = snapshotQuery.trim().toLowerCase();
+  const allTags = [...new Set(snapshotList.flatMap((snapshot) => Array.isArray(snapshot.tags) ? snapshot.tags : []))].sort();
+  if (tagFilters) {
+    const hasTags = allTags.length > 0;
+    tagFilters.innerHTML = hasTags
+      ? [`<button class="snapshot-tag-chip ${activeSnapshotTags.length ? '' : 'active'}" data-tag="" data-role="snapshot-filter">全部</button>`]
+          .concat(allTags.map((tag) => `<button class="snapshot-tag-chip ${activeSnapshotTags.includes(tag) ? 'active' : ''}" data-tag="${escapeHtml(tag)}" data-role="snapshot-filter">#${escapeHtml(tag)}</button>`))
+          .join('')
+      : '';
+  }
+
+  const visibleSnapshots = snapshotList.filter((snapshot) => {
+    const tags = Array.isArray(snapshot.tags) ? snapshot.tags : [];
+    const matchesQuery = !normalizedQuery
+      || (snapshot.name || '').toLowerCase().includes(normalizedQuery)
+      || (snapshot.source || '').toLowerCase().includes(normalizedQuery)
+      || tags.some((tag) => tag.toLowerCase().includes(normalizedQuery));
+    const matchesTag = !activeSnapshotTags.length || activeSnapshotTags.every((tag) => tags.includes(tag));
+    return matchesQuery && matchesTag;
+  });
+
+  if (!visibleSnapshots.length) {
+    list.innerHTML = '<li class="snapshot-item"><div class="snapshot-meta">暂无快照</div></li>';
+    return;
+  }
+
+  list.innerHTML = visibleSnapshots.slice(0, 8).map((snapshot) => {
+    const date = snapshot.scanTime ? new Date(snapshot.scanTime).toLocaleString('zh-CN') : 'unknown';
+    return `
+      <li class="snapshot-item ${snapshot.current ? 'current' : ''} ${snapshot.pinned ? 'pinned' : ''}">
+        <div class="snapshot-name">${escapeHtml(snapshot.name || 'unknown')}</div>
+        <div class="snapshot-meta">${escapeHtml(snapshot.source || '')}</div>
+        <div class="snapshot-meta">${snapshot.pinned ? '📌 ' : ''}${date} · 节点 ${snapshot.nodeCount} · 风险 ${snapshot.riskCount}</div>
+        ${(snapshot.tags || []).length ? `<div class="snapshot-tags">${snapshot.tags.map((tag) => `<button class="snapshot-tag" data-role="snapshot-filter" data-tag="${escapeHtml(tag)}">#${escapeHtml(tag)}</button>`).join('')}</div>` : ''}
+        <div class="snapshot-actions">
+          <button class="btn btn-sm" onclick="togglePinSnapshot('${snapshot.id}', ${snapshot.pinned ? 'false' : 'true'})">${snapshot.pinned ? '取消置顶' : '置顶'}</button>
+          <button class="btn btn-sm" onclick="editSnapshotTags('${snapshot.id}')">标签</button>
+          <button class="btn btn-sm" onclick="renameSnapshot('${snapshot.id}')">重命名</button>
+          <button class="btn btn-sm" onclick="restoreSnapshot('${snapshot.id}')">恢复</button>
+          <button class="btn btn-sm" onclick="deleteSnapshot('${snapshot.id}')">删除</button>
+        </div>
+      </li>
+    `;
+  }).join('');
+}
+
+function setSnapshotTagFilter(tag) {
+  const next = (tag || '').trim();
+  if (!next) {
+    activeSnapshotTags = [];
+    renderSnapshots();
+    return;
+  }
+
+  if (activeSnapshotTags.includes(next)) {
+    activeSnapshotTags = activeSnapshotTags.filter((item) => item !== next);
+  } else {
+    activeSnapshotTags = [...activeSnapshotTags, next];
+  }
+  renderSnapshots();
+}
+
+async function renameSnapshot(snapshotId) {
+  const snapshot = snapshotList.find((item) => item.id === snapshotId);
+  if (!snapshot) return;
+  const name = window.prompt('输入新的快照名称', snapshot.name || '');
+  if (!name || !name.trim() || name.trim() === snapshot.name) return;
+
+  try {
+    const res = await fetch('/api/studio/snapshots/' + encodeURIComponent(snapshotId) + '/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'rename failed');
+    }
+
+    snapshotList = data.snapshots || [];
+    renderSnapshots();
+    appendOperationLog(`已重命名快照: ${name.trim()}`, 'info');
+  } catch (err) {
+    appendOperationLog(`重命名快照失败: ${err.message}`, 'error');
+  }
+}
+
+async function editSnapshotTags(snapshotId) {
+  const snapshot = snapshotList.find((item) => item.id === snapshotId);
+  if (!snapshot) return;
+
+  const value = window.prompt('输入快照标签，使用英文逗号分隔', (snapshot.tags || []).join(', '));
+  if (value === null) return;
+
+  const tags = value.split(',').map((tag) => tag.trim()).filter(Boolean);
+
+  try {
+    const res = await fetch('/api/studio/snapshots/' + encodeURIComponent(snapshotId) + '/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'update tags failed');
+    }
+
+    snapshotList = data.snapshots || [];
+    if (activeSnapshotTags.length) {
+      const allTags = new Set(snapshotList.flatMap((item) => Array.isArray(item.tags) ? item.tags : []));
+      activeSnapshotTags = activeSnapshotTags.filter((tag) => allTags.has(tag));
+    }
+    renderSnapshots();
+    appendOperationLog('快照标签已更新', 'info');
+  } catch (err) {
+    appendOperationLog(`更新快照标签失败: ${err.message}`, 'error');
+  }
+}
+
+async function togglePinSnapshot(snapshotId, pinned) {
+  try {
+    const res = await fetch('/api/studio/snapshots/' + encodeURIComponent(snapshotId) + '/pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pinned }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'pin failed');
+    }
+
+    snapshotList = data.snapshots || [];
+    renderSnapshots();
+    appendOperationLog(pinned ? '快照已置顶' : '快照已取消置顶', 'info');
+  } catch (err) {
+    appendOperationLog(`更新快照置顶失败: ${err.message}`, 'error');
+  }
+}
+
+async function restoreSnapshot(snapshotId) {
+  try {
+    const res = await fetch('/api/studio/snapshots/' + encodeURIComponent(snapshotId) + '/load', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'restore failed');
+    }
+
+    selectedNode = null;
+    await Promise.all([loadGraph(), loadRisks(), loadSummary(), loadSnapshots()]);
+    document.getElementById('stats-section').style.display = '';
+    document.getElementById('filter-section').style.display = '';
+    document.getElementById('snapshot-section').style.display = '';
+    document.getElementById('risk-section').style.display = '';
+    appendOperationLog(`已恢复快照: ${data.source || snapshotId}`, 'info');
+  } catch (err) {
+    appendOperationLog(`恢复快照失败: ${err.message}`, 'error');
+  }
+}
+
+async function deleteSnapshot(snapshotId) {
+  const snapshot = snapshotList.find((item) => item.id === snapshotId);
+  if (!snapshot) return;
+  const confirmed = window.confirm(`确认删除快照“${snapshot.name || snapshot.id}”？`);
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch('/api/studio/snapshots/' + encodeURIComponent(snapshotId) + '/delete', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'delete failed');
+    }
+
+    snapshotList = data.snapshots || [];
+    renderSnapshots();
+    if (data.hasCurrent) {
+      selectedNode = null;
+      await Promise.all([loadGraph(), loadRisks(), loadSummary(), loadSnapshots()]);
+    } else {
+      clearStudioState();
+    }
+    appendOperationLog(`已删除快照: ${snapshot.name || snapshot.id}`, 'info');
+  } catch (err) {
+    appendOperationLog(`删除快照失败: ${err.message}`, 'error');
+  }
+}
+
+function clearStudioState() {
+  graphData = { nodes: [], edges: [] };
+  riskData = [];
+  selectedNode = null;
+  snapshotList = [];
+  activeSnapshotTags = [];
+  document.getElementById('project-name').textContent = '';
+  document.getElementById('project-type').textContent = '';
+  document.getElementById('stat-apis').textContent = '0';
+  document.getElementById('stat-models').textContent = '0';
+  document.getElementById('stat-files').textContent = '0';
+  document.getElementById('stat-risks').textContent = '0';
+  document.getElementById('risk-count').textContent = '(0)';
+  document.getElementById('health-score').textContent = '—';
+  document.getElementById('health-fill').style.width = '0%';
+  renderGraph();
+  renderNodeTypeFilter();
+  renderRiskList();
+  renderSnapshots();
 }
 
 // ===== Node Detail Panel =====
@@ -620,12 +1141,29 @@ async function showNodeDetail(node) {
 
   // Fetch node detail
   const res = await fetch('/api/studio/node/' + encodeURIComponent(node.id));
+  if (!res.ok) {
+    document.getElementById('panel-body').innerHTML = '<p>节点详情加载失败</p>';
+    return;
+  }
   const data = await res.json();
+  const outgoingCount = data.outgoing?.length || 0;
+  const incomingCount = data.incoming?.length || 0;
+  const neighborCount = data.neighbors?.length || 0;
+  const degree = outgoingCount + incomingCount;
 
   let html = `<p><b>类型:</b> ${TYPE_LABELS[node.type] || node.type}</p>`;
   if (node.filePath) html += `<p><b>文件:</b> ${escapeHtml(node.filePath)}</p>`;
   if (node.language) html += `<p><b>语言:</b> ${node.language}</p>`;
   if (node.module) html += `<p><b>模块:</b> ${node.module}</p>`;
+
+  html += `
+    <div class="relation-summary">
+      <div class="stat-item"><div class="stat-value">${outgoingCount}</div><div class="stat-label">输出</div></div>
+      <div class="stat-item"><div class="stat-value">${incomingCount}</div><div class="stat-label">输入</div></div>
+      <div class="stat-item"><div class="stat-value">${neighborCount}</div><div class="stat-label">邻居</div></div>
+      <div class="stat-item"><div class="stat-value">${degree}</div><div class="stat-label">总关系</div></div>
+    </div>
+  `;
 
   if (data.outgoing?.length > 0) {
     html += `<h3>输出关系 (${data.outgoing.length})</h3><ul>`;
@@ -694,33 +1232,60 @@ document.getElementById('perspective-tabs').addEventListener('click', async (e) 
   if (view === 'graph') {
     document.getElementById('graph-canvas').style.display = '';
     document.getElementById('report-view').style.display = 'none';
+    document.getElementById('report-toolbar').style.display = 'none';
     renderGraph();
     return;
   }
 
-  if (!graphData.nodes?.length) return;
+  if (!graphData.nodes?.length) {
+    document.getElementById('report-content').innerHTML = '<div class="loading-text">暂无图谱数据，请先扫描项目</div>';
+    document.getElementById('graph-canvas').style.display = 'none';
+    document.getElementById('report-view').style.display = 'block';
+    document.getElementById('report-toolbar').style.display = 'none';
+    return;
+  }
 
   // Show report view
   document.getElementById('graph-canvas').style.display = 'none';
   document.getElementById('report-view').style.display = 'block';
+  document.getElementById('report-toolbar').style.display = 'none';
   document.getElementById('report-content').innerHTML = '<div class="loading-text">生成报告中...</div>';
 
-  const res = await fetch('/api/studio/report/' + perspective);
-  const report = await res.json();
+  try {
+    const report = await fetchPerspectiveReport(perspective);
+    currentReport = report;
+    currentReportMode = 'markdown';
+    currentReportPerspective = perspective;
+    renderCurrentReport();
+    document.getElementById('report-toolbar').style.display = '';
+    appendOperationLog(`报告已生成: ${perspective}`, 'info');
+  } catch (err) {
+    document.getElementById('report-content').innerHTML = renderReportError(err.message || 'unknown');
+    document.getElementById('report-toolbar').style.display = 'none';
+    appendOperationLog(`报告生成失败: ${err.message || 'unknown'}`, 'error');
+  }
+});
 
-  let html = `<h1 style="color:var(--accent);margin-bottom:8px">${escapeHtml(report.title || '')}</h1>`;
-  html += `<p style="color:var(--text-secondary);margin-bottom:24px">${escapeHtml(report.summary || '')}</p>`;
-
-  for (const section of (report.sections || [])) {
-    html += `<h2 style="color:var(--accent);margin-top:24px;margin-bottom:8px">${escapeHtml(section.heading)}</h2>`;
-    html += `<div style="line-height:1.8">${markdownToHtml(section.content)}</div>`;
-    if (section.visualization) {
-      html += `<pre style="background:var(--bg-input);padding:12px;border-radius:8px;margin:12px 0;font-size:11px;overflow-x:auto">${escapeHtml(section.visualization.data)}</pre>`;
-    }
+document.getElementById('report-toolbar').addEventListener('click', async (e) => {
+  const modeBtn = e.target.closest('.report-mode');
+  if (modeBtn) {
+    currentReportMode = modeBtn.dataset.mode || 'markdown';
+    document.querySelectorAll('.report-mode').forEach((btn) => btn.classList.remove('active'));
+    modeBtn.classList.add('active');
+    renderCurrentReport();
+    return;
   }
 
-  html += `<p style="color:var(--text-muted);margin-top:24px;font-size:11px">生成时间: ${report.generatedAt || new Date().toISOString()}</p>`;
-  document.getElementById('report-content').innerHTML = html;
+  if (e.target.id === 'copy-report-btn') {
+    const text = getCurrentReportText();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      appendOperationLog('报告内容已复制到剪贴板', 'info');
+    } catch {
+      appendOperationLog('复制失败，请检查浏览器权限', 'warn');
+    }
+  }
 });
 
 // ===== Theme Toggle =====
@@ -734,7 +1299,9 @@ function togglePanel() {
 }
 
 function filterByType(type) {
-  // TODO: implement filter highlighting
+  activeTypeFilter = activeTypeFilter === type ? null : type;
+  renderNodeTypeFilter();
+  renderGraph();
 }
 
 // ===== Tooltip =====
@@ -756,23 +1323,51 @@ function hideTooltip() {
 // ===== WebSocket for live updates =====
 function connectWS() {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(protocol + '//' + location.host + '/ws');
+  wsClient = new WebSocket(protocol + '//' + location.host + '/ws');
 
-  ws.onmessage = (e) => {
+  wsClient.onopen = async () => {
+    appendOperationLog('WebSocket 已连接', 'info');
+    await rehydrateStudioState();
+  };
+
+  wsClient.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
-      if (msg.type === 'agent:update') updateAgents(msg.payload);
-      else if (msg.type === 'graph:update') { graphData = { ...graphData, ...msg.payload }; renderGraph(); }
+      if (msg.type === 'agent:update') scheduleAgentRefresh(msg.payload);
+      else if (msg.type === 'graph:update') {
+        graphData = { ...graphData, ...msg.payload };
+        scheduleGraphRender();
+      }
       else if (msg.type === 'scan:progress') {
-        document.getElementById('loading-detail').textContent = msg.payload.detail || '';
+        const detail = msg.payload.detail || '';
+        const percent = Number.isFinite(msg.payload.percent) ? Math.round(msg.payload.percent) : 0;
+        document.getElementById('loading-detail').textContent = `${detail} (${percent}%)`;
+        appendOperationLog(`扫描进度 ${percent}% - ${detail || msg.payload.phase || ''}`, 'info');
       }
       else if (msg.type === 'log') {
-        console.log(`[${msg.payload.level}] ${msg.payload.message}`);
+        appendOperationLog(msg.payload.message, msg.payload.level || 'info');
+      }
+      else if (msg.type === 'files:generated') {
+        appendOperationLog(`已生成 ${Array.isArray(msg.payload) ? msg.payload.length : 0} 个测试文件`, 'info');
+      }
+      else if (msg.type === 'pipeline:complete') {
+        const ok = msg.payload?.status === 'success';
+        appendOperationLog(ok ? 'Pipeline 执行完成' : `Pipeline 执行失败: ${msg.payload?.error || 'unknown'}`, ok ? 'info' : 'error');
+      }
+      else if (msg.type === 'test:complete') {
+        const metrics = msg.payload?.metrics;
+        if (metrics) {
+          appendOperationLog(`测试完成: pass ${metrics.passed}, fail ${metrics.failed}, skipped ${metrics.skipped}, timeout ${metrics.timedOut}`, 'info');
+        }
       }
     } catch {}
   };
 
-  ws.onclose = () => setTimeout(connectWS, 3000);
+  wsClient.onclose = () => {
+    appendOperationLog('WebSocket 已断开，3 秒后重连', 'warn');
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(connectWS, 3000);
+  };
 }
 
 function updateAgents(agents) {
@@ -798,7 +1393,251 @@ function markdownToHtml(md) {
   return html;
 }
 
+function renderVisualization(viz) {
+  if (!viz || !viz.data) return '';
+  if (viz.type === 'mermaid') {
+    const encoded = encodeURIComponent(viz.data);
+    return `<div class="report-mermaid" data-graph="${encoded}"><pre class="mermaid">${escapeHtml(viz.data)}</pre></div>`;
+  }
+  return `<div class="report-viz"><pre>${escapeHtml(viz.data)}</pre></div>`;
+}
+
+async function fetchPerspectiveReport(perspective) {
+  const cached = reportCache.get(perspective);
+  if (cached) return cached;
+  const res = await fetch('/api/studio/report/' + perspective);
+  if (!res.ok) {
+    throw new Error('报告生成失败');
+  }
+  const report = await res.json();
+  reportCache.set(perspective, report);
+  return report;
+}
+
+function renderReportError(message) {
+  return `
+    <div class="loading-text">报告生成失败: ${escapeHtml(message)}</div>
+    <div style="margin-top:12px">
+      <button class="btn btn-primary btn-sm" onclick="retryCurrentReport()">重试</button>
+    </div>
+  `;
+}
+
+async function retryCurrentReport() {
+  if (!currentReportPerspective) {
+    appendOperationLog('当前没有可重试的报告视角', 'warn');
+    return;
+  }
+
+  reportCache.delete(currentReportPerspective);
+  document.getElementById('report-content').innerHTML = '<div class="loading-text">重试生成报告中...</div>';
+  try {
+    const report = await fetchPerspectiveReport(currentReportPerspective);
+    currentReport = report;
+    currentReportMode = 'markdown';
+    document.querySelectorAll('.report-mode').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.mode === 'markdown');
+    });
+    renderCurrentReport();
+    document.getElementById('report-toolbar').style.display = '';
+    appendOperationLog(`报告重试成功: ${currentReportPerspective}`, 'info');
+  } catch (err) {
+    document.getElementById('report-content').innerHTML = renderReportError(err.message || 'unknown');
+    document.getElementById('report-toolbar').style.display = 'none';
+    appendOperationLog(`报告重试失败: ${err.message || 'unknown'}`, 'error');
+  }
+}
+
+function renderCurrentReport() {
+  const container = document.getElementById('report-content');
+  if (!container || !currentReport) return;
+
+  if (currentReportMode === 'raw') {
+    container.innerHTML = `<pre class="report-viz">${escapeHtml(JSON.stringify(currentReport, null, 2))}</pre>`;
+    return;
+  }
+
+  if (currentReportMode === 'mermaid') {
+    const mermaidSections = (currentReport.sections || [])
+      .filter((s) => s.visualization?.type === 'mermaid' && s.visualization?.data)
+      .map((s) => {
+        return `<h3 style="color:var(--accent);margin-top:18px">${escapeHtml(s.heading)}</h3>${renderVisualization(s.visualization)}`;
+      });
+    container.innerHTML = mermaidSections.length
+      ? mermaidSections.join('')
+      : '<div class="loading-text">当前报告不包含 Mermaid 可视化</div>';
+    hydrateMermaid();
+    return;
+  }
+
+  let html = `<h1 style="color:var(--accent);margin-bottom:8px">${escapeHtml(currentReport.title || '')}</h1>`;
+  html += `<p style="color:var(--text-secondary);margin-bottom:24px">${escapeHtml(currentReport.summary || '')}</p>`;
+
+  for (const section of (currentReport.sections || [])) {
+    html += `<h2 style="color:var(--accent);margin-top:24px;margin-bottom:8px">${escapeHtml(section.heading)}</h2>`;
+    html += `<div style="line-height:1.8">${markdownToHtml(section.content)}</div>`;
+    if (section.visualization) {
+      html += renderVisualization(section.visualization);
+    }
+  }
+
+  html += `<p style="color:var(--text-muted);margin-top:24px;font-size:11px">生成时间: ${currentReport.generatedAt || new Date().toISOString()}</p>`;
+  container.innerHTML = html;
+  hydrateMermaid();
+}
+
+function getCurrentReportText() {
+  if (!currentReport) return '';
+  if (currentReportMode === 'raw') {
+    return JSON.stringify(currentReport, null, 2);
+  }
+  if (currentReportMode === 'mermaid') {
+    const charts = (currentReport.sections || [])
+      .filter((s) => s.visualization?.type === 'mermaid' && s.visualization?.data)
+      .map((s) => `# ${s.heading}\n${s.visualization.data}`);
+    return charts.join('\n\n');
+  }
+  return reportToMarkdown(currentReport);
+}
+
+function reportToMarkdown(report) {
+  let text = `# ${report.title || 'Report'}\n\n`;
+  if (report.summary) {
+    text += `${report.summary}\n\n`;
+  }
+
+  for (const section of (report.sections || [])) {
+    text += `## ${section.heading}\n\n${section.content || ''}\n\n`;
+    if (section.visualization?.data) {
+      if (section.visualization.type === 'mermaid') {
+        text += `\`\`\`mermaid\n${section.visualization.data}\n\`\`\`\n\n`;
+      } else {
+        text += `\`\`\`\n${section.visualization.data}\n\`\`\`\n\n`;
+      }
+    }
+  }
+
+  if (report.generatedAt) {
+    text += `> generatedAt: ${report.generatedAt}\n`;
+  }
+  return text;
+}
+
+async function ensureMermaidReady() {
+  if (window.mermaid) return window.mermaid;
+  if (window.__mermaidLoading) return window.__mermaidLoading;
+
+  window.__mermaidLoading = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+    script.onload = () => resolve(window.mermaid);
+    script.onerror = () => reject(new Error('Failed to load Mermaid runtime'));
+    document.head.appendChild(script);
+  });
+
+  return window.__mermaidLoading;
+}
+
+async function hydrateMermaid() {
+  const blocks = document.querySelectorAll('.mermaid');
+  if (!blocks.length) return;
+  try {
+    const mermaid = await ensureMermaidReady();
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: 'default' });
+    await mermaid.run({ querySelector: '.mermaid' });
+  } catch (err) {
+    appendOperationLog('Mermaid 渲染失败，已回退为文本展示', 'warn');
+  }
+}
+
+function appendOperationLog(message, level = 'info') {
+  const ts = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  eventLog.push({ ts, level, message: String(message || '') });
+  if (eventLog.length > MAX_EVENT_LOG_ROWS) {
+    eventLog = eventLog.slice(eventLog.length - MAX_EVENT_LOG_ROWS);
+  }
+
+  scheduleEventLogRender();
+}
+
+function scheduleEventLogRender() {
+  if (eventLogRenderScheduled) return;
+  eventLogRenderScheduled = true;
+  requestAnimationFrame(() => {
+    eventLogRenderScheduled = false;
+    renderOperationLogPanel();
+  });
+}
+
+function renderOperationLogPanel() {
+  const panel = document.getElementById('panel');
+  const title = document.getElementById('panel-title');
+  const body = document.getElementById('panel-body');
+  if (!panel || !title || !body) return;
+
+  if (!panel.classList.contains('open') || title.textContent === '实时日志') {
+    title.textContent = '实时日志';
+    const filtered = eventLog.filter((row) => currentLogFilter === 'all' || row.level === currentLogFilter);
+    const latestRows = filtered.slice(-40);
+    body.innerHTML = `
+      <div class="event-log-toolbar">
+        <button class="btn btn-sm event-log-filter ${currentLogFilter === 'all' ? 'active' : ''}" data-level="all">全部</button>
+        <button class="btn btn-sm event-log-filter ${currentLogFilter === 'info' ? 'active' : ''}" data-level="info">Info</button>
+        <button class="btn btn-sm event-log-filter ${currentLogFilter === 'warn' ? 'active' : ''}" data-level="warn">Warn</button>
+        <button class="btn btn-sm event-log-filter ${currentLogFilter === 'error' ? 'active' : ''}" data-level="error">Error</button>
+      </div>
+      <div class="event-log">
+    ` + latestRows.map(row => {
+      return `<div class="event-log-row"><span class="event-log-level-${row.level}">[${row.level}]</span> ${escapeHtml(row.ts)} ${escapeHtml(row.message)}</div>`;
+    }).join('') + '</div>';
+
+    body.querySelectorAll('.event-log-filter').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentLogFilter = btn.dataset.level || 'all';
+        renderOperationLogPanel();
+      });
+    });
+  }
+}
+
+async function rehydrateStudioState() {
+  try {
+    await Promise.all([loadGraph(), loadRisks(), loadSummary(), loadSnapshots()]);
+    document.getElementById('stats-section').style.display = '';
+    document.getElementById('filter-section').style.display = '';
+    document.getElementById('snapshot-section').style.display = '';
+    document.getElementById('risk-section').style.display = '';
+  } catch {
+    // Ignore; no scanned project yet.
+  }
+}
+
 // ===== Init =====
+document.getElementById('snapshot-search').addEventListener('input', (e) => {
+  snapshotQuery = e.target.value || '';
+  renderSnapshots();
+});
+
+document.getElementById('snapshot-tag-filters').addEventListener('click', (e) => {
+  const target = e.target.closest('[data-role="snapshot-filter"]');
+  if (!target) return;
+  setSnapshotTagFilter(target.dataset.tag || '');
+});
+
+document.getElementById('snapshot-list').addEventListener('click', (e) => {
+  const target = e.target.closest('[data-role="snapshot-filter"]');
+  if (!target) return;
+  setSnapshotTagFilter(target.dataset.tag || '');
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    selectedNode = null;
+    hideTooltip();
+    scheduleGraphRender();
+  }
+});
+
 connectWS();
 </script>
 </body>

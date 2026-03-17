@@ -5,7 +5,7 @@
 <h1 align="center">OpenCroc</h1>
 
 <p align="center">
-  <strong>ソースコードを読み取り、テストを自動生成し、失敗を自己修復する AI ネイティブ E2E テストフレームワーク。</strong>
+  <strong>ソースコードを読み取り、テストを生成し、失敗を自己修復する AI ネイティブな E2E テストフレームワーク。</strong>
 </p>
 
 <p align="center">
@@ -16,35 +16,36 @@
 </p>
 
 <p align="center">
-  <a href="README.en.md">English</a> | <a href="README.zh-CN.md">简体中文</a> | <a href="README.ja.md">日本語</a>
+  <a href="README.md">English</a> | <a href="README.zh-CN.md">简体中文</a> | <a href="README.ja.md">日本語</a>
 </p>
 
 ---
 
 ## OpenCroc とは
 
-OpenCroc は [Playwright](https://playwright.dev) 上に構築された **AI ネイティブ E2E テストフレームワーク** です。手作業で大量のテストスクリプトを書く代わりに、OpenCroc は**バックエンドのソースコード**（モデル、コントローラー、DTO）を解析し、API チェーン、シードデータ、リクエストボディ、アサーションを含む E2E テストスイートを自動生成します。
+OpenCroc は [Playwright](https://playwright.dev) を土台にした AI ネイティブなエンドツーエンドテストフレームワークです。大量のテストスクリプトを手書きする代わりに、OpenCroc はバックエンドのソースコードを読み取り、モデル、コントローラ、DTO、関連を理解したうえで、シードデータ、リクエストボディ、API チェーン、アサーションを含む E2E スイートを自動生成します。
 
-テストが失敗した場合、単なるエラー出力で終わりません。リクエストチェーン全体をたどって**根本原因を特定**し、**修正パッチを生成**し、**再実行で修正を検証**します。
+テストが失敗した場合も、単にエラーを表示するだけではありません。リクエストチェーンを横断して原因を追跡し、根本原因の候補を整理し、修正案を生成し、制御されたフローの中で再検証できます。
 
-### 主な機能
+## 主な機能
 
 | 機能 | 説明 |
-|---|---|
-| **ソースコード認識型テスト生成** | [ts-morph](https://ts-morph.com) で Sequelize/TypeORM モデル、Express/NestJS コントローラー、DTO デコレーターを解析し API 面を把握 |
-| **AI 駆動の設定生成** | LLM がリクエストテンプレート、シードデータ、パラメータマッピングを生成し、3層検証（schema -> semantic -> dry-run）で確認 |
-| **インテリジェントなチェーン計画** | API 依存 DAG を構築し、トポロジカルソートと貪欲最適化でテストチェーンを設計 |
-| **ログ駆動の完了判定** | `networkidle` を超えて、バックエンド実行ログ（`api_exec end`）で完了を検証 |
-| **失敗チェーンの原因追跡** | ネットワークエラー -> 遅延 API -> バックエンドログの順で追跡し根因特定 |
-| **制御された自己修復** | `backup -> AI patch -> dry-run -> apply -> re-run -> verify -> rollback` を安全ゲート付きで実行 |
-| **影響範囲分析** | 外部キー関係を BFS でたどり、影響範囲を可視化し Mermaid 図を生成 |
+| --- | --- |
+| ソースコード認識型生成 | Sequelize、TypeORM、Prisma、Drizzle の構造を解析し、モジュール、モデル、ルート、DTO を把握 |
+| AI 設定生成 | リクエストテンプレート、シード計画、パラメータマッピング、テスト雛形を生成し、検証ゲートを通過 |
+| チェーン計画 | 依存 DAG を構築し、より高い API カバレッジの実行順を計画 |
+| ログ駆動完了判定 | `networkidle` だけに頼らず、バックエンドの完了シグナルでも判定 |
+| 失敗の帰属分析 | フロントの要求、バックエンドログ、依存チェーンを結びつけて原因を追跡 |
+| 制御された自己修復 | backup、patch、dry-run、re-run、verify、rollback のループを提供 |
+| 可視化 Studio | グラフ探索、Agent 状態確認、ピクセルオフィス表示のためのローカル Web UI を提供 |
 
 ## クイックスタート
 
 ### 前提条件
 
-- Node.js >= 18
-- Express/NestJS + Sequelize/TypeORM を利用するバックエンドプロジェクト
+- Node.js 18 以上
+- Express または NestJS を使うバックエンドプロジェクト
+- サポート対象の ORM またはスキーマ構造
 
 ### インストール
 
@@ -58,11 +59,12 @@ npm install opencroc --save-dev
 npx opencroc init
 ```
 
-このコマンドで以下を実行します:
-1. プロジェクト構成をスキャン
-2. ORM とフレームワークを検出
-3. `opencroc.config.ts` を初期生成
-4. サンプルテストを生成
+このコマンドは次を実行します。
+
+1. プロジェクト構造のスキャン
+2. フレームワークと ORM パターンの検出
+3. `opencroc.config.ts` の生成
+4. 初期出力構成の生成
 
 ### テスト生成
 
@@ -70,10 +72,10 @@ npx opencroc init
 # 単一モジュールのテスト生成
 npx opencroc generate --module=knowledge-base
 
-# 全モジュールのテスト生成
+# すべての検出モジュールのテスト生成
 npx opencroc generate --all
 
-# ドライラン（ファイルを書き込まない）
+# 書き込みなしのプレビュー
 npx opencroc generate --all --dry-run
 ```
 
@@ -83,220 +85,197 @@ npx opencroc generate --all --dry-run
 # 生成済みテストをすべて実行
 npx opencroc test
 
-# 特定モジュールのみ実行
+# 単一モジュールのみ実行
 npx opencroc test --module=knowledge-base
 
-# 自己修復モードで実行
-npx opencroc test --self-heal
+# headed モードで実行
+npx opencroc test --headed
+
+# CLI からフックを上書き
+npx opencroc test --setup-hook="npm run e2e:setup" --auth-hook="node scripts/auth.js" --teardown-hook="npm run e2e:cleanup"
 ```
 
 ### AI 設定の検証
 
 ```bash
-# 生成設定を検証
 npx opencroc validate --all
-
-# AI 生成結果とベースラインを比較
 npx opencroc compare --baseline=report-a.json --current=report-b.json
 ```
 
-### OpenCroc Studio の起動
+## OpenCroc Studio
 
-OpenCroc Studio は**ピクセルアート風ワニオフィス** + リアルタイム**ナレッジグラフ** UI です。ローカル Web サーバーとして起動し、プロジェクト構造・Agent ステータス・テスト結果を可視化します。
+OpenCroc Studio は OpenCroc のローカル可視化ワークスペースです。知識グラフ、ピクセルオフィス運用ビュー、3D オフィスランタイムを、CLI から起動する 1 つの Web 体験にまとめています。
+
+### Studio の起動
 
 ```bash
-# Studio を起動（http://localhost:8765 をブラウザで自動オープン）
+# Studio を起動し、ブラウザを開く
 npx opencroc serve
 
 # カスタムポート
 npx opencroc serve --port 3000
 
-# ブラウザ自動オープンを無効化
+# ブラウザ自動起動を無効化
 npx opencroc serve --no-open
 
-# ホスト指定（リモートアクセス用）
+# 公開 host にバインド
 npx opencroc serve --host 0.0.0.0 --port 8765
 ```
 
-Studio の機能：
-- **ナレッジグラフキャンバス** — モデル・コントローラー・API 関係のインタラクティブグラフ（ドラッグ、ズーム、ホバー）
-- **ピクセルワニオフィス** — 6 体の AI Agent（パーサー 🐊、アナライザー 🐊、テスター 🐊、ヒーラー 🐊、プランナー 🐊、レポーター 🐊）、リアルタイムステータスアニメーション付き
-- **リアルタイム WebSocket** — Agent ステータスとグラフ変更を即座にブラウザへ配信
-- **モジュールサイドバー** — 検出されたモジュールと Agent ステータスをひと目で確認
-- **REST API** — `GET /api/project`（グラフデータ）、`GET /api/agents`（Agent ステータス）、`POST /api/project/refresh`（再スキャン）
+### 現在の Web アーキテクチャ
 
-### フルパイプライン（ワンコマンド）
+- Fastify がローカル Studio アプリと API を配信
+- フロントエンドは単一エントリの Vite SPA
+- 主要ルートは `/`、`/studio`、`/pixel`
+- Web ソースは `src/web` 配下で `app`、`pages`、`features`、`shared`、`styles`、`public` に整理
+- 旧 URL である `/index-studio.html` と `/index-v2-pixel.html` は SPA ルートへリダイレクト
+
+### Studio の機能
+
+- モジュール、API、関連を可視化する知識グラフキャンバス
+- Agent の稼働状況を見せるピクセルオフィスダッシュボード
+- 没入感のある監視用 3D オフィスランタイムビュー
+- WebSocket によるリアルタイム更新
+- ルート切替対応のサイドナビゲーション
+- `GET /api/project`、`GET /api/agents`、`POST /api/project/refresh` などの REST API
+
+## フルパイプライン
 
 ```bash
-# すべてを実行：generate → execute → analyze → heal → report
+# フルパイプラインを実行
 npx opencroc run
 
-# オプション付き
+# 単一モジュールに自己修復とレポートを付けて実行
 npx opencroc run --module=users --self-heal --report html,json
 ```
 
-### CI/CD 統合
+## CI/CD 統合
 
 ```bash
-# GitHub Actions ワークフローを生成
 npx opencroc ci --platform github
-
-# GitLab CI パイプラインを生成
 npx opencroc ci --platform gitlab --self-heal
 ```
 
-### Dashboard とレポート
+## ダッシュボードとレポート
 
 ```bash
-# ビジュアル Dashboard を生成
 npx opencroc dashboard
-
-# 複数形式のレポートを生成
 npx opencroc report --format html,json,markdown
 ```
 
 ## アーキテクチャ
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│              OpenCroc Studio (localhost:8765)                │
-│    ピクセルワニオフィス + ナレッジグラフ + WebSocket          │
-├─────────────────────────────────────────────────────────────┤
-│                     CLI / Orchestrator                       │
-├──────────┬──────────┬──────────┬──────────┬─────────────────┤
-│  Source   │  Chain   │  Test    │ Execution│   Self-Healing  │
-│  Parser   │ Planner  │Generator │  Engine  │     Engine      │
-│           │          │          │          │                 │
-│ ts-morph  │ DAG +    │ Template │Playwright│ AI Attribution  │
-│ Model     │ Topo     │ + AI     │ + Log    │ + Controlled    │
-│ Controller│ Sort +   │ Config   │ Driven   │ Fix + Verify    │
-│ DTO       │ Greedy   │ Merge    │ Assert   │ + Rollback      │
-├──────────┴──────────┴──────────┴──────────┴─────────────────┤
-│              Observation Bus (Network + Backend Logs)         │
-├──────────────────────────────────────────────────────────────┤
-│              Report Engine (HTML / JSON / Markdown)           │
-└──────────────────────────────────────────────────────────────┘
+```text
++-------------------------------------------------------------------+
+| OpenCroc Studio                                                   |
+| Fastify サーバー + 単一エントリ Vite SPA + WebSocket 更新         |
+| ルート: /, /studio, /pixel                                        |
++-------------------------------------------------------------------+
+| CLI / Orchestrator                                                |
++--------------+--------------+---------------+----------------------+
+| ソース解析   | チェーン計画 | テスト生成    | 実行 / 観測          |
++--------------+--------------+---------------+----------------------+
+| 自己修復     | 影響分析     | レポート      | Dashboard / Studio   |
++--------------+--------------+---------------+----------------------+
 ```
 
 ### 6 段階パイプライン
 
-```
+```text
 Source Scan -> ER Diagram -> API Analysis -> Chain Planning -> Test Generation -> Failure Analysis
-     │            │             │              │                │                  │
-  ts-morph    Mermaid      Dependency       Topological     Playwright +      Root Cause +
-  parsing     erDiagram    DAG builder      + greedy        AI body/seed      Impact map
 ```
 
 ## 仕組み
 
 ### 1. ソース解析
 
-OpenCroc は [ts-morph](https://ts-morph.com) を使ってバックエンドを静的解析します。
+OpenCroc は [ts-morph](https://ts-morph.com) とフレームワーク認識型パーサを使って次を解析します。
 
-- **Models**: Sequelize `Model.init()` / TypeORM `@Entity()` からテーブル名、列型、インデックス、外部キーを抽出
-- **Controllers**: Express `router.get/post/put/delete` からルート、HTTP メソッド、パスパラメータを抽出
-- **DTOs**: `@IsString()`、`@IsNumber()`、`@IsOptional()` からバリデーションルールを抽出
+- モデルと関連
+- コントローラとルート
+- DTO フィールドとバリデーションルール
+- モジュール境界と依存面
 
 ### 2. AI 設定生成
 
-各モジュールごとに、OpenCroc は LLM（OpenAI / ZhiPu / OpenAI 互換 API）を呼び出して以下を生成します。
+各モジュールに対して OpenCroc は次を生成できます。
 
-- **リクエストボディテンプレート**: フィールド精度の高い POST/PUT ペイロード
-- **シードデータ**: 正しい API 順序を持つ `beforeAll` セットアップ
-- **パラメータマッピング**: パスパラメータ別名（`/:id` -> `categoryId`）
-- **ID エイリアス**: 複数リソースチェーンでの ID 衝突防止
+- リクエストボディテンプレート
+- シードデータ計画
+- パラメータマッピング
+- ID エイリアス規則
 
-各設定は **3 層検証** を通過します。
-1. **Schema 検証**: JSON 構造の完全性
-2. **Semantic 検証**: フィールド値がソースメタデータに一致するか
-3. **Dry-run 検証**: TypeScript コンパイル確認
+各設定は以下の検証を通過します。
 
-失敗した設定は書き込み前に自動修正（最大 3 ラウンド）されます。
+1. Schema 検証
+2. Semantic 検証
+3. Dry-run 検証
 
-### 3. ログ駆動の完了判定
+### 3. ログ駆動完了判定
 
-壊れやすい `networkidle` に依存せず、以下で判定します。
-
-```
-Frontend Request -> Backend api_exec start log -> Backend processing -> api_exec end log
-                                                                          ↓
-                                              OpenCroc polls end logs to confirm completion
-```
-
-フロントが待機状態でもバックエンドが継続処理中のケースを検出できます。
+ブラウザのアイドル状態だけに頼らず、バックエンドの完了シグナルも使ってリクエストが本当に終了したかを判定します。
 
 ### 4. 自己修復ループ
 
-```
+```text
 Test Failure
-  -> AI Attribution (LLM + heuristic fallback)
-  -> Generate Fix Patch
-  -> Dry-Run Validation
-  -> Apply Patch (with backup)
-  -> Re-run Failed Tests
-  -> Verify Fix
-  -> Commit or Rollback
+-> Attribution
+-> Proposed Fix
+-> Dry-Run Validation
+-> Apply Patch
+-> Re-run
+-> Verify
+-> Rollback if needed
 ```
 
 ## 実プロジェクト検証
 
-OpenCroc は**本番規模の RBAC システム**（マルチテナント企業権限管理）で検証済みです。100+ の Sequelize モデル、75+ の Express コントローラー、モデルファイル内埋め込みアソシエーションを含みます：
+OpenCroc は 100 を超える Sequelize モデル、数十のコントローラ、埋め込み関連定義を含む本番スタイルの RBAC システムで検証されています。
 
-```
+```bash
 $ npx tsx examples/rbac-system/smoke-test.ts
 
-Modules        : 5 (default, aigc, data-platform, integration, workflow)
+Modules        : 5
 ER Diagrams    : 5
-  [default] 102 tables, 65 relations
-  [aigc] 6 tables, 0 relations
-  [data-platform] 4 tables, 0 relations
-  [integration] 14 tables, 0 relations
-  [workflow] 2 tables, 0 relations
 Chain Plans    : 5
-  [aigc] 78 chains, 150 steps
 Generated Files: 78
 Duration       : 1153ms
 ```
 
-主な結果：
-- フラットモデルレイアウトから **102 テーブル** と **65 の外部キー関係** を正確に抽出
-- 専用の association ファイル不要 — モデルファイル内の**埋め込みアソシエーション**（`.belongsTo()` / `.hasMany()`）を検出
-- 5 モジュールで **78 テストファイル** を約1秒で生成
-- フラット（`models/*.ts`）とネスト（`models/module/*.ts`）の両ディレクトリ構造に対応
+主な結果:
+
+- フラットなモデル構成から 102 テーブルと 65 外部キー関連を抽出
+- 専用 association ファイルなしで埋め込み関連を検出
+- 5 モジュールに対して 78 テストファイルを生成
+- フラット構成とネスト構成の両方に対応
 
 ## 設定例
 
 ```typescript
-// opencroc.config.ts
 import { defineConfig } from 'opencroc';
 
 export default defineConfig({
-  // バックエンドソースのパス
   backend: {
     modelsDir: 'src/models',
     controllersDir: 'src/controllers',
     servicesDir: 'src/services',
   },
 
-  // 対象アプリケーション
   baseUrl: 'http://localhost:3000',
   apiBaseUrl: 'http://localhost:3000/api',
 
-  // AI 設定
   ai: {
-    provider: 'openai',        // 'openai' | 'zhipu' | 'custom'
+    provider: 'openai',
     apiKey: process.env.AI_API_KEY,
     model: 'gpt-4o-mini',
   },
 
-  // テスト実行
   execution: {
     workers: 4,
     timeout: 30_000,
     retries: 1,
   },
 
-  // ログ駆動完了判定（バックエンド側の計測が必要）
   logCompletion: {
     enabled: true,
     endpoint: '/internal/test-logs',
@@ -304,71 +283,89 @@ export default defineConfig({
     timeoutMs: 10_000,
   },
 
-  // 自己修復
   selfHealing: {
     enabled: false,
-    fixScope: 'config-only',   // 'config-only' | 'config-and-source'
+    fixScope: 'config-only',
     maxFixRounds: 3,
     dryRunFirst: true,
   },
 });
 ```
 
-## 対応技術スタック
+## サポート技術スタック
 
-| レイヤー | 対応済み | 予定 |
-|---|---|---|
-| **ORM** | Sequelize, TypeORM, Prisma, Drizzle | — |
-| **Framework** | Express | NestJS, Fastify, Koa |
-| **Test Runner** | Playwright | — |
-| **LLM** | OpenAI, ZhiPu (GLM), Ollama (local) | Anthropic |
-| **Database** | MySQL, PostgreSQL | SQLite, MongoDB |
+| レイヤー | 対応済み | 今後 |
+| --- | --- | --- |
+| ORM | Sequelize, TypeORM, Prisma, Drizzle | 必要に応じて拡張 |
+| Framework | Express | NestJS, Fastify, Koa |
+| Test Runner | Playwright | 追加ランナー |
+| LLM | OpenAI, ZhiPu, Ollama | Anthropic |
+| Database | MySQL, PostgreSQL | SQLite, MongoDB |
 
 ## 比較
 
 | 機能 | OpenCroc | Playwright | Metersphere | auto-playwright |
-|---|---|---|---|---|
-| ソース認識生成 | ✅ | ❌ | ❌ | ❌ |
-| AI 設定生成 + 検証 | ✅ | ❌ | ❌ | ❌ |
-| ログ駆動完了判定 | ✅ | ❌ | ❌ | ❌ |
-| 失敗チェーン帰属分析 | ✅ | ❌ | Partial | ❌ |
-| 自己修復 + ロールバック | ✅ | ❌ | ❌ | ❌ |
-| API 依存 DAG | ✅ | ❌ | ❌ | ❌ |
-| ゼロ設定テスト生成 | ✅ | Codegen only | Manual | NL->action |
-| 影響範囲分析 | ✅ | ❌ | ❌ | ❌ |
+| --- | --- | --- | --- | --- |
+| ソース認識型生成 | Yes | No | No | No |
+| AI 設定生成と検証 | Yes | No | No | No |
+| ログ駆動完了判定 | Yes | No | No | No |
+| 失敗帰属分析 | Yes | No | Partial | No |
+| 自己修復とロールバック | Yes | No | No | No |
+| API 依存 DAG | Yes | No | No | No |
+| ゼロ設定テスト生成 | Yes | Limited | Manual | Prompt-driven |
+| 影響分析 | Yes | No | No | No |
 
-## Roadmap
+## ロードマップ
 
-- [x] 6-stage source-to-test pipeline
-- [x] AI configuration generation with 3-layer validation
-- [x] Controlled self-healing loop
-- [x] Log-driven completion detection
-- [x] Failure chain attribution + impact analysis
-- [x] TypeORM / Prisma adapter
-- [x] Ollama local LLM support
-- [x] Real-world validation (102 tables, 65 relations, 78 generated tests)
-- [x] GitHub Actions / GitLab CI integration
-- [x] VS Code extension scaffold
-- [x] Plugin system
-- [x] HTML / JSON / Markdown report generation
-- [x] NestJS controller parser
-- [x] Visual dashboard (opencroc.com)
-- [x] Drizzle ORM adapter
-- [x] AI Config Suggester + Enhanced DTO-aware Suggester
-- [x] Auto-Fixer (4 strategies: interface-path, DTO field, seed dependency, param mapping)
-- [x] 3-layer config validation (schema → semantic → dry-run)
-- [x] DTO Parser (ts-morph interface + express-validator extraction)
-- [x] Baseline Comparator (Playwright report diff + regression detection)
-- [x] Module config preset loader
-- [x] LLM-enhanced chain planner
-- [x] Runtime infrastructure (Playwright config, auth setup, teardown, network monitor)
-- [x] Full orchestration pipeline
-- [x] Advanced reporters (checklist, workorder, token tracking)
-- [x] OpenCroc Studio — ピクセルワニオフィス + ナレッジグラフ UI（`opencroc serve`）
+- [x] 6 段階ソースからテストへのパイプライン
+- [x] AI 設定生成と検証
+- [x] 制御された自己修復ループ
+- [x] ログ駆動完了判定
+- [x] 失敗帰属分析と影響分析
+- [x] Prisma と Drizzle への対応
+- [x] Ollama ローカルモデル対応
+- [x] CI 統合
+- [x] VS Code 拡張スキャフォールド
+- [x] プラグインシステム
+- [x] HTML、JSON、Markdown レポート
+- [x] 可視化 Studio ダッシュボード
+- [x] Runtime 基盤
+- [x] フルオーケストレーション
+- [x] 高度なレポーター
+- [x] OpenCroc Studio のルートベース Web アプリ化
+
+## リリーススナップショット
+
+- この README が対象とする製品スナップショット: `1.8.3`
+- Studio アーキテクチャスナップショット: Fastify + 単一エントリ Vite SPA + ルートベースビュー
+- 主な Studio ルート: `/`、`/studio`、`/pixel`
+- フルスイート品質ゲート: 41 テストファイル、414 テスト通過
+
+### バージョンの流れ
+
+- `0.3.x`: プラグインシステム、CI テンプレート、レポーター、VS Code スキャフォールド
+- `0.4.x`: NestJS コントローラパーサ
+- `0.5.x`: Drizzle ORM アダプタ
+- `0.6.x`: 可視化ダッシュボードと Windows Vitest 安定化
+- `0.7.x - 0.9.x`: runtime 基盤、認証、ログ駆動検出、ルールエンジン
+- `1.0.0`: フルオーケストレーション
+- `1.1.0`: 高度な自己修復
+- `1.2.0`: 高度なレポーターと移行作業
+- `1.3.0`: OpenCroc Studio M1
+- `1.8.3`: Vite SPA ルーティング、Web アーキテクチャ整理、配布パッケージ軽量化
+
+### リリース検証
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm view opencroc version dist-tags --json
+```
 
 ## ドキュメント
 
-詳細は **[opencroc.com](https://opencroc.com)** を参照してください。あわせて以下も確認できます。
+詳細は **[opencroc.com](https://opencroc.com)** を参照してください。あわせて次も確認できます。
 
 - [Architecture Guide](docs/architecture.md)
 - [Configuration Reference](docs/configuration.md)
@@ -379,8 +376,8 @@ export default defineConfig({
 
 ## コントリビュート
 
-貢献を歓迎します。ガイドラインは [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
+コントリビューションを歓迎します。詳細は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
 
 ## ライセンス
 
-[MIT](LICENSE) © 2026 OpenCroc Contributors
+[MIT](LICENSE) Copyright 2026 OpenCroc Contributors

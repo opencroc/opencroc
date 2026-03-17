@@ -5,7 +5,7 @@
 <h1 align="center">OpenCroc</h1>
 
 <p align="center">
-  <strong>AI 原生 E2E 测试框架：读取你的源码、自动生成测试、并可自愈失败。</strong>
+  <strong>AI 原生 E2E 测试框架：读取源码、生成测试，并对失败进行自愈。</strong>
 </p>
 
 <p align="center">
@@ -16,35 +16,36 @@
 </p>
 
 <p align="center">
-  <a href="README.en.md">English</a> | <a href="README.zh-CN.md">简体中文</a> | <a href="README.ja.md">日本語</a>
+  <a href="README.md">English</a> | <a href="README.zh-CN.md">简体中文</a> | <a href="README.ja.md">日本語</a>
 </p>
 
 ---
 
 ## OpenCroc 是什么？
 
-OpenCroc 是一个构建在 [Playwright](https://playwright.dev) 之上的 **AI 原生端到端测试框架**。你不需要手写大量脚本，OpenCroc 会**读取后端源码**（模型、控制器、DTO），并自动生成完整 E2E 测试套件，包括 API 调用链、种子数据、请求体与断言。
+OpenCroc 是一个构建在 [Playwright](https://playwright.dev) 之上的 AI 原生端到端测试框架。它不要求你手写大量测试脚本，而是直接读取后端源码，理解模型、控制器、DTO 与关系后，自动生成完整的 E2E 测试套件，包括种子数据、请求体、API 调用链和断言。
 
-当测试失败时，OpenCroc 不只是报错，而是会沿完整请求链路**定位根因**、**生成修复补丁**，并**自动回归验证**修复结果。
+当测试失败时，OpenCroc 不只是输出报错。它会沿着请求链路追踪问题，归因可能的根因，生成修复建议，并在受控流程中重新执行验证。
 
-### 核心能力
+## 核心能力
 
 | 能力 | 说明 |
-|---|---|
-| **源码感知测试生成** | 通过 [ts-morph](https://ts-morph.com) 解析 Sequelize/TypeORM 模型、Express/NestJS 控制器、DTO 装饰器，识别 API 面 |
-| **AI 配置生成** | 使用 LLM 生成请求模板、种子数据、参数映射，并通过三层校验（schema -> semantic -> dry-run） |
-| **智能调用链规划** | 构建 API 依赖 DAG，做拓扑排序并以贪心策略提升覆盖率 |
-| **日志驱动完成判定** | 超越 `networkidle`，通过后端日志（`api_exec end`）确认请求真正完成 |
-| **失败链路归因** | 从网络异常 -> 慢接口 -> 后端日志逐层追踪，定位根因 |
-| **可控自愈机制** | `backup -> AI patch -> dry-run -> apply -> re-run -> verify -> rollback`，每步有安全闸门 |
-| **影响面分析** | 基于外键关系做 BFS 传播分析，自动输出 Mermaid 图 |
+| --- | --- |
+| 源码感知生成 | 解析 Sequelize、TypeORM、Prisma、Drizzle 结构，识别模块、模型、路由与 DTO |
+| AI 配置生成 | 生成请求模板、种子数据计划、参数映射与测试脚手架，并经过校验 |
+| 调用链规划 | 构建依赖 DAG，规划更高覆盖率的 API 执行顺序 |
+| 日志驱动完成判定 | 不只依赖 `networkidle`，还能结合后端执行信号判断是否真正完成 |
+| 失败归因 | 关联前端请求、后端日志与依赖链路，定位问题来源 |
+| 受控自愈 | 支持 backup、patch、dry-run、re-run、verify、rollback 等闭环 |
+| 可视化 Studio | 提供本地 Web UI，用于图谱探索、Agent 状态观察和像素办公室展示 |
 
 ## 快速开始
 
 ### 前置要求
 
-- Node.js >= 18
-- 使用 Express/NestJS + Sequelize/TypeORM 的后端项目
+- Node.js 18 或更高版本
+- 使用 Express 或 NestJS 的后端项目
+- 使用受支持的 ORM 或模式结构
 
 ### 安装
 
@@ -58,11 +59,12 @@ npm install opencroc --save-dev
 npx opencroc init
 ```
 
-该命令会：
+这条命令会：
+
 1. 扫描项目结构
-2. 识别 ORM 与后端框架
-3. 生成默认 `opencroc.config.ts`
-4. 生成一套示例测试
+2. 识别框架与 ORM 特征
+3. 创建 `opencroc.config.ts`
+4. 生成起步用的输出结构
 
 ### 生成测试
 
@@ -70,7 +72,7 @@ npx opencroc init
 # 为单个模块生成测试
 npx opencroc generate --module=knowledge-base
 
-# 为所有模块生成测试
+# 为所有检测到的模块生成测试
 npx opencroc generate --all
 
 # 仅预览，不落盘
@@ -83,220 +85,197 @@ npx opencroc generate --all --dry-run
 # 运行全部生成的测试
 npx opencroc test
 
-# 运行指定模块
+# 运行单个模块
 npx opencroc test --module=knowledge-base
 
-# 启用自愈运行
-npx opencroc test --self-heal
+# 以 headed 模式运行
+npx opencroc test --headed
+
+# 通过 CLI 覆盖生命周期钩子
+npx opencroc test --setup-hook="npm run e2e:setup" --auth-hook="node scripts/auth.js" --teardown-hook="npm run e2e:cleanup"
 ```
 
 ### 校验 AI 配置
 
 ```bash
-# 校验所有生成配置
 npx opencroc validate --all
-
-# 比较两份报告差异
 npx opencroc compare --baseline=report-a.json --current=report-b.json
 ```
 
-### 启动 OpenCroc Studio
+## OpenCroc Studio
 
-OpenCroc Studio 是一个**像素风鳄鱼办公室** + 实时**知识图谱** UI。它在本地启动一个 Web 服务器，可视化展示项目结构、Agent 状态和测试结果。
+OpenCroc Studio 是 OpenCroc 的本地可视化工作台。它把知识图谱视图、像素办公室运营视图和 3D 办公室运行时整合在一个由 CLI 启动的 Web 体验中。
+
+### 启动 Studio
 
 ```bash
-# 启动 Studio（自动打开浏览器 http://localhost:8765）
+# 启动 Studio 并打开浏览器
 npx opencroc serve
 
 # 自定义端口
 npx opencroc serve --port 3000
 
-# 不自动打开浏览器
+# 禁止自动打开浏览器
 npx opencroc serve --no-open
 
-# 指定 host（如远程访问）
+# 绑定公开 host
 npx opencroc serve --host 0.0.0.0 --port 8765
 ```
 
-Studio 功能：
-- **知识图谱画布** — 项目模型、控制器、API 关系的可交互图谱（拖拽、缩放、悬停提示）
-- **像素鳄鱼办公室** — 6 只 AI 鳄鱼 Agent（解析鳄 🐊、分析鳄 🐊、测试鳄 🐊、修复鳄 🐊、规划鳄 🐊、汇报鳄 🐊），带实时状态动画
-- **实时 WebSocket** — Agent 状态和图谱变化即时推送到浏览器
-- **模块侧边栏** — 一目了然浏览已发现的模块和 Agent 状态
-- **REST API** — `GET /api/project`（图谱数据）、`GET /api/agents`（Agent 状态）、`POST /api/project/refresh`（重新扫描）
+### 当前 Web 架构
 
-### 完整流水线（一条命令）
+- Fastify 提供本地 Studio 应用与 API 服务
+- 前端是单入口 Vite SPA
+- 主路由为 `/`、`/studio`、`/pixel`
+- Web 源码位于 `src/web`，按 `app`、`pages`、`features`、`shared`、`styles`、`public` 分层
+- 历史入口如 `/index-studio.html`、`/index-v2-pixel.html` 会被重定向到 SPA 路由
+
+### Studio 能力
+
+- 模块、API 与关系的知识图谱画布
+- 展示 Agent 活动的像素办公室仪表盘
+- 用于沉浸式监控的 3D 办公室运行时视图
+- 基于 WebSocket 的实时状态更新
+- 支持路由切换的侧边导航
+- REST 接口，例如 `GET /api/project`、`GET /api/agents`、`POST /api/project/refresh`
+
+## 完整流水线
 
 ```bash
-# 一键运行：generate → execute → analyze → heal → report
+# 执行完整流水线
 npx opencroc run
 
-# 带选项
+# 对单个模块启用自愈并输出报告
 npx opencroc run --module=users --self-heal --report html,json
 ```
 
-### CI/CD 集成
+## CI/CD 集成
 
 ```bash
-# 生成 GitHub Actions 工作流
 npx opencroc ci --platform github
-
-# 生成 GitLab CI 管道
 npx opencroc ci --platform gitlab --self-heal
 ```
 
-### Dashboard 与报告
+## Dashboard 与报告
 
 ```bash
-# 生成可视化 Dashboard
 npx opencroc dashboard
-
-# 生成多格式报告
 npx opencroc report --format html,json,markdown
 ```
 
 ## 架构
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│              OpenCroc Studio (localhost:8765)                │
-│    像素鳄鱼办公室  +  知识图谱  +  WebSocket                 │
-├─────────────────────────────────────────────────────────────┤
-│                     CLI / Orchestrator                       │
-├──────────┬──────────┬──────────┬──────────┬─────────────────┤
-│  Source   │  Chain   │  Test    │ Execution│   Self-Healing  │
-│  Parser   │ Planner  │Generator │  Engine  │     Engine      │
-│           │          │          │          │                 │
-│ ts-morph  │ DAG +    │ Template │Playwright│ AI Attribution  │
-│ Model     │ Topo     │ + AI     │ + Log    │ + Controlled    │
-│ Controller│ Sort +   │ Config   │ Driven   │ Fix + Verify    │
-│ DTO       │ Greedy   │ Merge    │ Assert   │ + Rollback      │
-├──────────┴──────────┴──────────┴──────────┴─────────────────┤
-│              Observation Bus (Network + Backend Logs)         │
-├──────────────────────────────────────────────────────────────┤
-│              Report Engine (HTML / JSON / Markdown)           │
-└──────────────────────────────────────────────────────────────┘
+```text
++-------------------------------------------------------------------+
+| OpenCroc Studio                                                   |
+| Fastify 服务 + 单入口 Vite SPA + WebSocket 更新                   |
+| 路由：/, /studio, /pixel                                          |
++-------------------------------------------------------------------+
+| CLI / Orchestrator                                                |
++--------------+--------------+---------------+----------------------+
+| 源码解析     | 链路规划     | 测试生成      | 执行 / 观察          |
++--------------+--------------+---------------+----------------------+
+| 自愈         | 影响分析     | 报告输出      | Dashboard / Studio   |
++--------------+--------------+---------------+----------------------+
 ```
 
 ### 6 阶段流水线
 
-```
+```text
 Source Scan -> ER Diagram -> API Analysis -> Chain Planning -> Test Generation -> Failure Analysis
-     │            │             │              │                │                  │
-  ts-morph    Mermaid      Dependency       Topological     Playwright +      Root Cause +
-  parsing     erDiagram    DAG builder      + greedy        AI body/seed      Impact map
 ```
 
 ## 工作原理
 
 ### 1. 源码解析
 
-OpenCroc 基于 [ts-morph](https://ts-morph.com) 做静态分析：
+OpenCroc 使用 [ts-morph](https://ts-morph.com) 以及框架感知解析器来分析：
 
-- **Models**：从 Sequelize `Model.init()` / TypeORM `@Entity()` 提取表名、字段类型、索引、外键
-- **Controllers**：从 Express `router.get/post/put/delete` 提取路由、HTTP 方法、路径参数
-- **DTOs**：从 `@IsString()`、`@IsNumber()`、`@IsOptional()` 装饰器提取校验规则
+- 模型与关系
+- 控制器与路由
+- DTO 字段与校验规则
+- 模块边界与依赖面
 
 ### 2. AI 配置生成
 
-每个模块都会调用 LLM（OpenAI / 智谱 / 任意 OpenAI 兼容 API）生成：
+针对每个模块，OpenCroc 可以生成：
 
-- **请求体模板**：字段级精确的 POST/PUT payload
-- **种子数据**：`beforeAll` 的初始化步骤与正确调用顺序
-- **参数映射**：路径参数别名（`/:id` -> `categoryId`）
-- **ID 别名**：避免多资源链路中的 ID 冲突
+- 请求体模板
+- 种子数据计划
+- 参数映射
+- ID 别名规则
 
-每份配置都要通过 **3 层校验**：
-1. **Schema 校验**：JSON 结构完整性
-2. **语义校验**：字段值是否与源码元数据一致
-3. **Dry-run 校验**：TypeScript 编译检查
+每份配置都要经过以下校验：
 
-若校验失败，会在落盘前自动修复（最多 3 轮）。
+1. Schema 校验
+2. 语义校验
+3. Dry-run 校验
 
 ### 3. 日志驱动完成判定
 
-不依赖脆弱的 `networkidle`：
-
-```
-Frontend Request -> Backend api_exec start log -> Backend processing -> api_exec end log
-                                                                          ↓
-                                              OpenCroc polls end logs to confirm completion
-```
-
-这能覆盖“前端看起来空闲、后端仍在处理”的场景。
+OpenCroc 不只依赖浏览器空闲信号，还能结合后端完成信号来判断请求是否真正结束。
 
 ### 4. 自愈闭环
 
-```
+```text
 Test Failure
-  -> AI Attribution (LLM + heuristic fallback)
-  -> Generate Fix Patch
-  -> Dry-Run Validation
-  -> Apply Patch (with backup)
-  -> Re-run Failed Tests
-  -> Verify Fix
-  -> Commit or Rollback
+-> Attribution
+-> Proposed Fix
+-> Dry-Run Validation
+-> Apply Patch
+-> Re-run
+-> Verify
+-> Rollback if needed
 ```
 
 ## 真实项目验证
 
-OpenCroc 已在一套**生产级 RBAC 系统**（多租户企业权限管理）上完成验证，涵盖 100+ Sequelize 模型、75+ Express 控制器、以及模型文件内嵌的关联声明：
+OpenCroc 已在一个生产风格的 RBAC 系统上完成验证，项目包含 100+ Sequelize 模型、数十个控制器以及嵌入式关联定义。
 
-```
+```bash
 $ npx tsx examples/rbac-system/smoke-test.ts
 
-Modules        : 5 (default, aigc, data-platform, integration, workflow)
+Modules        : 5
 ER Diagrams    : 5
-  [default] 102 tables, 65 relations
-  [aigc] 6 tables, 0 relations
-  [data-platform] 4 tables, 0 relations
-  [integration] 14 tables, 0 relations
-  [workflow] 2 tables, 0 relations
 Chain Plans    : 5
-  [aigc] 78 chains, 150 steps
 Generated Files: 78
 Duration       : 1153ms
 ```
 
-关键发现：
-- 从扁平模型布局中正确提取了 **102 张表** 和 **65 条外键关系**
-- 无需独立 association 文件，直接检测模型文件中的**嵌入式关联**（`.belongsTo()` / `.hasMany()`）
-- 5 个模块共生成 **78 个测试文件**，耗时仅 1 秒出头
-- 同时兼容扁平（`models/*.ts`）和嵌套（`models/module/*.ts`）目录结构
+关键结果：
+
+- 从扁平模型布局中提取出 102 张表与 65 条外键关系
+- 无需单独 association 文件即可识别嵌入式关联
+- 在 5 个模块上生成了 78 个测试文件
+- 同时兼容扁平与嵌套目录结构
 
 ## 配置示例
 
 ```typescript
-// opencroc.config.ts
 import { defineConfig } from 'opencroc';
 
 export default defineConfig({
-  // 后端源码路径
   backend: {
     modelsDir: 'src/models',
     controllersDir: 'src/controllers',
     servicesDir: 'src/services',
   },
 
-  // 目标应用
   baseUrl: 'http://localhost:3000',
   apiBaseUrl: 'http://localhost:3000/api',
 
-  // AI 配置
   ai: {
-    provider: 'openai',        // 'openai' | 'zhipu' | 'custom'
+    provider: 'openai',
     apiKey: process.env.AI_API_KEY,
     model: 'gpt-4o-mini',
   },
 
-  // 测试执行
   execution: {
     workers: 4,
     timeout: 30_000,
     retries: 1,
   },
 
-  // 日志驱动完成判定（需后端埋点）
   logCompletion: {
     enabled: true,
     endpoint: '/internal/test-logs',
@@ -304,10 +283,9 @@ export default defineConfig({
     timeoutMs: 10_000,
   },
 
-  // 自愈
   selfHealing: {
     enabled: false,
-    fixScope: 'config-only',   // 'config-only' | 'config-and-source'
+    fixScope: 'config-only',
     maxFixRounds: 3,
     dryRunFirst: true,
   },
@@ -316,74 +294,65 @@ export default defineConfig({
 
 ## 支持的技术栈
 
-| 层级 | 已支持 | 规划中 |
-|---|---|---|
-| **ORM** | Sequelize, TypeORM, Prisma, Drizzle | — |
-| **Framework** | Express | NestJS, Fastify, Koa |
-| **Test Runner** | Playwright | — |
-| **LLM** | OpenAI, ZhiPu (GLM), Ollama (local) | Anthropic |
-| **Database** | MySQL, PostgreSQL | SQLite, MongoDB |
+| 层 | 已支持 | 计划中 |
+| --- | --- | --- |
+| ORM | Sequelize, TypeORM, Prisma, Drizzle | 视需求继续扩展 |
+| Framework | Express | NestJS, Fastify, Koa |
+| Test Runner | Playwright | 更多运行器 |
+| LLM | OpenAI, ZhiPu, Ollama | Anthropic |
+| Database | MySQL, PostgreSQL | SQLite, MongoDB |
 
 ## 对比
 
 | 功能 | OpenCroc | Playwright | Metersphere | auto-playwright |
-|---|---|---|---|---|
-| 源码感知生成 | ✅ | ❌ | ❌ | ❌ |
-| AI 配置生成 + 校验 | ✅ | ❌ | ❌ | ❌ |
-| 日志驱动完成判定 | ✅ | ❌ | ❌ | ❌ |
-| 失败链路归因 | ✅ | ❌ | 部分 | ❌ |
-| 自愈 + 回滚 | ✅ | ❌ | ❌ | ❌ |
-| API 依赖 DAG | ✅ | ❌ | ❌ | ❌ |
-| 零配置测试生成 | ✅ | 仅 codegen | 手工 | NL->action |
-| 影响面分析 | ✅ | ❌ | ❌ | ❌ |
+| --- | --- | --- | --- | --- |
+| 源码感知生成 | Yes | No | No | No |
+| AI 配置生成与校验 | Yes | No | No | No |
+| 日志驱动完成判定 | Yes | No | No | No |
+| 失败归因 | Yes | No | Partial | No |
+| 自愈与回滚 | Yes | No | No | No |
+| API 依赖 DAG | Yes | No | No | No |
+| 零配置测试生成 | Yes | Limited | Manual | Prompt-driven |
+| 影响分析 | Yes | No | No | No |
 
-## Roadmap
+## 路线图
 
-- [x] 6-stage source-to-test pipeline
-- [x] AI configuration generation with 3-layer validation
-- [x] Controlled self-healing loop
-- [x] Log-driven completion detection
-- [x] Failure chain attribution + impact analysis
-- [x] TypeORM / Prisma adapter
-- [x] Ollama local LLM support
-- [x] Real-world validation (102 tables, 65 relations, 78 generated tests)
-- [x] GitHub Actions / GitLab CI integration
-- [x] VS Code extension scaffold
-- [x] Plugin system
-- [x] HTML / JSON / Markdown report generation
-- [x] NestJS controller parser
-- [x] Visual dashboard (opencroc.com)
-- [x] Drizzle ORM adapter
-- [x] AI Config Suggester + Enhanced DTO-aware Suggester
-- [x] Auto-Fixer（4 策略：接口路径匹配、DTO 字段填充、种子依赖排序、参数映射修复）
-- [x] 三层配置验证（schema → semantic → dry-run）
-- [x] DTO Parser（ts-morph 接口解析 + express-validator 规则提取）
-- [x] Baseline Comparator（Playwright 报告 diff + 回归检测）
-- [x] 模块配置预设加载器
-- [x] LLM 增强链路规划器
-- [x] Runtime 基础设施（Playwright 配置生成、认证 Setup、Teardown、网络监控）
-- [x] 全流程编排管道
-- [x] 高级报告系统（检查清单、工单生成、Token 追踪）
-- [x] OpenCroc Studio — 像素鳄鱼办公室 + 知识图谱 UI（`opencroc serve`）
+- [x] 6 阶段源码到测试流水线
+- [x] AI 配置生成与校验
+- [x] 受控自愈闭环
+- [x] 日志驱动完成判定
+- [x] 失败归因与影响分析
+- [x] Prisma 与 Drizzle 适配
+- [x] Ollama 本地模型支持
+- [x] CI 集成
+- [x] VS Code 插件脚手架
+- [x] 插件系统
+- [x] HTML、JSON、Markdown 报告
+- [x] 可视化 Studio 仪表盘
+- [x] Runtime 基础设施
+- [x] 全流程编排
+- [x] 高级报告系统
+- [x] OpenCroc Studio 路由化 Web 应用
 
-## 发布快照
+## 版本快照
 
-- 当前稳定版本：`1.3.0`
-- npm `latest` 标签：`1.3.0`
-- Roadmap 状态：M1 Studio 已交付
-- 全量质量门禁：34 个测试文件 / 373 个测试通过（Node.js 20.x & 22.x）
+- 本文档对应的产品快照：`1.8.3`
+- Studio 架构快照：Fastify + 单入口 Vite SPA + 路由视图
+- 主 Studio 路由：`/`、`/studio`、`/pixel`
+- 全量质量门禁：41 个测试文件、414 个测试通过
 
 ### 版本节奏
 
-- `0.3.x`：插件系统、CI 模板、报告系统、VS Code 脚手架、CI 稳定化
-- `0.4.x`：NestJS 控制器解析
-- `0.5.x`：Drizzle ORM 适配器
-- `0.6.x`：可视化 dashboard 与 Windows 下 Vitest 稳定性收口
-- `0.7.x – 0.9.x`：Runtime 基础设施（Playwright 生成器、认证、日志驱动检测、规则引擎）
+- `0.3.x`：插件系统、CI 模板、报告系统、VS Code 脚手架
+- `0.4.x`：NestJS 控制器解析器
+- `0.5.x`：Drizzle ORM 适配
+- `0.6.x`：可视化 dashboard 与 Windows Vitest 稳定性工作
+- `0.7.x - 0.9.x`：runtime 基础设施、认证、日志驱动检测、规则引擎
 - `1.0.0`：全流程编排管道
-- `1.1.0`：高级自愈（对话循环、可控修复器、自动修复 PR 生成）
-- `1.2.0`：高级报告系统 + Sprint 0-3 迁移完成
-- `1.3.0`：OpenCroc Studio M1 — Fastify 服务器、知识图谱 API、像素鳄鱼办公室前端
+- `1.1.0`：高级自愈
+- `1.2.0`：高级报告与迁移工作
+- `1.3.0`：OpenCroc Studio M1
+- `1.8.3`：Vite SPA 路由化、web 架构整理、发包瘦身
 
 ### 发布验证
 
@@ -396,7 +365,7 @@ npm view opencroc version dist-tags --json
 
 ## 文档
 
-访问 **[opencroc.com](https://opencroc.com)** 查看完整文档，或阅读：
+访问 **[opencroc.com](https://opencroc.com)** 获取更多文档，也可以查看：
 
 - [Architecture Guide](docs/architecture.md)
 - [Configuration Reference](docs/configuration.md)
@@ -409,6 +378,6 @@ npm view opencroc version dist-tags --json
 
 欢迎贡献代码与文档。请查看 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-## License
+## 许可证
 
-[MIT](LICENSE) © 2026 OpenCroc Contributors
+[MIT](LICENSE) Copyright 2026 OpenCroc Contributors

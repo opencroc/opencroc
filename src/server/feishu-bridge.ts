@@ -15,6 +15,8 @@ export interface FeishuTaskTarget {
   chatId: string;
   threadId?: string;
   requestId?: string;
+  replyToMessageId?: string;
+  rootMessageId?: string;
   source?: 'feishu';
 }
 
@@ -66,6 +68,7 @@ interface TaskSubscription {
   lastMessageId?: string;
   rootId?: string;
   threadId?: string;
+  replyToMessageId?: string;
 }
 
 function formatTaskLink(baseTaskUrl: string | undefined, taskId: string): string | undefined {
@@ -154,14 +157,32 @@ function formatRequestAckText(request: FeishuTaskRequest, taskId: string): strin
 }
 
 export class FeishuProgressBridge {
+  private withReplyContext(taskId: string, message: FeishuOutboundMessage): FeishuOutboundMessage {
+    const subscription = this.subscriptions.get(taskId);
+    if (!subscription) return message;
+
+    const replyToMessageId = subscription.firstMessageId ?? subscription.replyToMessageId;
+    const rootMessageId = subscription.rootId ?? subscription.firstMessageId ?? subscription.target.rootMessageId;
+    return {
+      ...message,
+      target: {
+        ...message.target,
+        threadId: subscription.threadId ?? message.target.threadId,
+        replyToMessageId,
+        rootMessageId,
+      },
+    };
+  }
+
   private async sendAndTrack(taskId: string, message: FeishuOutboundMessage): Promise<void> {
-    const receipt = await this.delivery.send(message);
+    const receipt = await this.delivery.send(this.withReplyContext(taskId, message));
     const subscription = this.subscriptions.get(taskId);
     if (!subscription || !receipt) return;
     subscription.firstMessageId ??= receipt.messageId;
     subscription.lastMessageId = receipt.messageId ?? subscription.lastMessageId;
-    subscription.rootId = receipt.rootId ?? subscription.rootId;
+    subscription.rootId = receipt.rootId ?? subscription.rootId ?? subscription.firstMessageId;
     subscription.threadId = receipt.threadId ?? subscription.threadId;
+    subscription.replyToMessageId = subscription.firstMessageId ?? subscription.replyToMessageId;
   }
 
   private readonly delivery: FeishuBridgeDelivery;
@@ -183,6 +204,8 @@ export class FeishuProgressBridge {
       lastProgressSent: -1,
       ackSent: false,
       threadId: target.threadId,
+      rootId: target.rootMessageId,
+      replyToMessageId: target.replyToMessageId ?? target.requestId,
     });
   }
 
@@ -190,7 +213,7 @@ export class FeishuProgressBridge {
     this.subscriptions.delete(taskId);
   }
 
-  getTaskBinding(taskId: string): { target: FeishuTaskTarget; firstMessageId?: string; lastMessageId?: string; rootId?: string; threadId?: string } | undefined {
+  getTaskBinding(taskId: string): { target: FeishuTaskTarget; firstMessageId?: string; lastMessageId?: string; rootId?: string; threadId?: string; replyToMessageId?: string } | undefined {
     const subscription = this.subscriptions.get(taskId);
     if (!subscription) return undefined;
     return {
@@ -199,6 +222,7 @@ export class FeishuProgressBridge {
       lastMessageId: subscription.lastMessageId,
       rootId: subscription.rootId,
       threadId: subscription.threadId,
+      replyToMessageId: subscription.replyToMessageId,
     };
   }
 
@@ -222,14 +246,18 @@ export class FeishuProgressBridge {
   }
 
   async sendRequestAck(taskId: string, request: FeishuTaskRequest): Promise<FeishuTaskRequestAck> {
+    if (!this.subscriptions.has(taskId)) {
+      this.bindTask(taskId, request.target);
+    }
     const ack = this.createRequestAck(taskId, request);
-    const receipt = await this.delivery.send(ack.message);
+    const receipt = await this.delivery.send(this.withReplyContext(taskId, ack.message));
     const subscription = this.subscriptions.get(taskId);
     if (subscription && receipt) {
       subscription.firstMessageId ??= receipt.messageId;
       subscription.lastMessageId = receipt.messageId ?? subscription.lastMessageId;
-      subscription.rootId = receipt.rootId ?? subscription.rootId;
+      subscription.rootId = receipt.rootId ?? subscription.rootId ?? subscription.firstMessageId;
       subscription.threadId = receipt.threadId ?? subscription.threadId;
+      subscription.replyToMessageId = subscription.firstMessageId ?? subscription.replyToMessageId;
     }
     return ack;
   }

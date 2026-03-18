@@ -117,6 +117,8 @@ export function registerFeishuIngressRoutes(app: FastifyInstance, office: CrocOf
     office.bindTaskToFeishu(task.id, {
       chatId: message?.chat_id || 'unknown-chat',
       requestId: message?.message_id,
+      replyToMessageId: message?.message_id,
+      rootMessageId: message?.message_id,
       source: 'feishu',
     });
 

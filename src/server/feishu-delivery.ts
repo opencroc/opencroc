@@ -18,6 +18,7 @@ interface FeishuSendMessageResponse {
   data?: {
     message_id?: string;
     root_id?: string;
+    thread_id?: string;
   };
 }
 
@@ -100,6 +101,9 @@ export class FeishuApiDelivery implements FeishuBridgeDelivery {
         content: JSON.stringify({
           text: formatOutboundText(message),
         }),
+        reply_in_thread: Boolean(message.target.threadId || message.target.rootMessageId),
+        root_id: message.target.rootMessageId,
+        reply_to_message_id: message.target.replyToMessageId,
       }),
     });
 
@@ -115,6 +119,7 @@ export class FeishuApiDelivery implements FeishuBridgeDelivery {
     return {
       messageId: json.data?.message_id,
       rootId: json.data?.root_id,
+      threadId: json.data?.thread_id,
     };
   }
 }

@@ -48,6 +48,7 @@ describe('FeishuApiDelivery', () => {
     expect(url).toContain('/im/v1/messages?receive_id_type=chat_id');
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tenant_token_xxx');
     expect(String(init.body)).toContain('任务进度更新');
+    expect(String(init.body)).toContain('"reply_in_thread":false');
   });
 
   it('fetches tenant token when app credentials are provided', async () => {
@@ -58,16 +59,23 @@ describe('FeishuApiDelivery', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ code: 0, msg: 'ok', data: { message_id: 'om_002' } }),
+        json: async () => ({ code: 0, msg: 'ok', data: { message_id: 'om_002', root_id: 'om_root_1', thread_id: 'omt_1' } }),
       });
     global.fetch = fetchMock as typeof fetch;
     const delivery = new FeishuApiDelivery({ enabled: true, mode: 'live', appId: 'cli_xxx', appSecret: 'sec_xxx' });
 
-    const receipt = await delivery.send(sampleMessage);
+    const receipt = await delivery.send({
+      ...sampleMessage,
+      target: { chatId: 'oc_123', source: 'feishu', rootMessageId: 'om_root_1', replyToMessageId: 'om_ack_1' },
+    });
 
-    expect(receipt).toEqual({ messageId: 'om_002', rootId: undefined });
+    expect(receipt).toEqual({ messageId: 'om_002', rootId: 'om_root_1', threadId: 'omt_1' });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect((fetchMock.mock.calls[0] as [string])[0]).toContain('/auth/v3/tenant_access_token/internal');
     expect((fetchMock.mock.calls[1] as [string])[0]).toContain('/im/v1/messages?receive_id_type=chat_id');
+    const secondInit = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(String(secondInit.body)).toContain('"reply_in_thread":true');
+    expect(String(secondInit.body)).toContain('"root_id":"om_root_1"');
+    expect(String(secondInit.body)).toContain('"reply_to_message_id":"om_ack_1"');
   });
 });

@@ -41,6 +41,7 @@ describe('FeishuProgressBridge', () => {
     expect(sent[0]?.text).toContain('已收到复杂请求');
     expect(sent[0]?.text).toContain('taskId：task_early_ack');
     expect(sent[0]?.link).toBe('https://demo.opencroc.ai/tasks/task_early_ack');
+    expect(bridge.getTaskBinding('task_early_ack')?.firstMessageId).toBe('om_ack_1');
   });
 
   it('sends ack on first task update', async () => {
@@ -77,8 +78,8 @@ describe('FeishuProgressBridge', () => {
 
   it('sends waiting update with decision options', async () => {
     const sent: FeishuOutboundMessage[] = [];
-    const bridge = new FeishuProgressBridge({ send: async (message) => { sent.push(message); } });
-    bridge.bindTask('task_123', { chatId: 'chat_123', source: 'feishu' });
+    const bridge = new FeishuProgressBridge({ send: async (message) => { sent.push(message); return { messageId: `om_${sent.length}` }; } });
+    bridge.bindTask('task_123', { chatId: 'chat_123', source: 'feishu', requestId: 'om_user_1', replyToMessageId: 'om_user_1', rootMessageId: 'om_user_1' });
 
     await bridge.handleTaskUpdate(makeTask({ progress: 10 }));
     await bridge.handleTaskUpdate(makeTask({
@@ -102,6 +103,9 @@ describe('FeishuProgressBridge', () => {
     expect(sent[1]?.kind).toBe('task-waiting');
     expect(sent[1]?.decision?.options).toHaveLength(2);
     expect(sent[1]?.text).toContain('请选择接下来的方向');
+    expect(sent[0]?.target.replyToMessageId).toBe('om_user_1');
+    expect(sent[1]?.target.replyToMessageId).toBe('om_1');
+    expect(sent[1]?.target.rootMessageId).toBe('om_user_1');
   });
 
   it('sends completion update when task is done', async () => {

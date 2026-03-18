@@ -5,7 +5,7 @@
 <h1 align="center">OpenCroc</h1>
 
 <p align="center">
-  <strong>AI-native E2E testing framework that reads your source code, generates tests, and self-heals failures.</strong>
+  <strong>Turn any backend repo into a living graph, executable tasks, reports, and Feishu-visible progress.</strong>
 </p>
 
 <p align="center">
@@ -16,387 +16,176 @@
 </p>
 
 <p align="center">
-  <a href="README.en.md">English</a> | <a href="README.zh-CN.md">简体中文</a> | <a href="README.ja.md">日本語</a>
+  <a href="README.md">简体中文</a> | <a href="README.en.md">English</a> | <a href="README.ja.md">日本語</a>
 </p>
 
 ---
 
-## What is OpenCroc?
+## Why OpenCroc?
 
-OpenCroc is an **AI-native end-to-end testing framework** built on top of [Playwright](https://playwright.dev). Instead of writing test scripts by hand, OpenCroc **reads your backend source code** (models, controllers, DTOs) and automatically generates complete E2E test suites, including API chains, seed data, request bodies, and assertions.
+OpenCroc puts repo understanding, task orchestration, test generation, execution, progress callbacks, and reporting into one toolchain so engineering, QA, product, and delivery teams can work from the same source-aware context.
 
-When tests fail, OpenCroc does not just report errors. It **traces the root cause** through the full request chain, **generates fix patches**, and **re-runs tests to verify the fix** autonomously.
+## Core Features
 
-### Key Capabilities
+- Source-aware scanning for modules, models, routes, DTOs, and dependency relationships
+- Local Studio workspace for graph exploration, task tracking, agent activity, and runtime visibility
+- Task-oriented execution model with stages, waiting states, summaries, and progress history
+- Source-aware E2E generation built on top of [Playwright](https://playwright.dev)
+- Failure attribution and controlled self-healing loops for generated test runs
+- Feishu progress bridge for ACK, staged progress, waiting prompts, and completion callbacks
+- HTML, JSON, and Markdown reports for engineering, product, and delivery review
 
-| Capability | Description |
-|---|---|
-| **Source-Aware Test Generation** | Parses Sequelize/TypeORM models, Express/NestJS controllers, and DTO decorators via [ts-morph](https://ts-morph.com) to understand your API surface |
-| **AI-Driven Configuration** | LLM generates request body templates, seed data, parameter mappings, validated by 3-layer verification (schema -> semantic -> dry-run) |
-| **Intelligent Chain Planning** | Builds API dependency DAGs, performs topological sorting, and plans test chains with greedy coverage optimization |
-| **Log-Driven Completion Detection** | Goes beyond `networkidle`; verifies request completion by matching backend execution logs (`api_exec end`) |
-| **Failure Chain Attribution** | Traces failures through the full call chain: network errors -> slow APIs -> backend logs -> root cause |
-| **Controlled Self-Healing** | `backup -> AI patch -> dry-run -> apply -> re-run -> verify -> rollback`, with safety gates at every step |
-| **Impact Analysis** | BFS traversal of foreign key relations to map blast radius and auto-generate Mermaid diagrams |
-
-## Quick Start
+## 5-Minute Quick Start
 
 ### Prerequisites
 
-- Node.js >= 18
-- A backend project with Express/NestJS + Sequelize/TypeORM
+- Node.js 18+
+- A backend repo you want to scan, generate against, or operate
+- Install `@playwright/test` when you plan to execute generated tests
 
-### Installation
+### 1) Install
 
 ```bash
-npm install opencroc --save-dev
+npm install --save-dev opencroc @playwright/test
 ```
 
-### Initialize
+### 2) Initialize a config
 
 ```bash
-npx opencroc init
+npx opencroc init --yes
 ```
 
-This will:
-1. Scan your project structure
-2. Detect your ORM and framework
-3. Create `opencroc.config.ts` with sensible defaults
-4. Generate a sample test suite
+This creates a starter `opencroc.config.ts` for the current repo.
 
-### Generate Tests
+### 3) Run a first dry run
 
 ```bash
-# Generate tests for a single module
-npx opencroc generate --module=knowledge-base
-
-# Generate tests for all detected modules
-npx opencroc generate --all
-
-# Dry-run (preview without writing files)
 npx opencroc generate --all --dry-run
 ```
 
-### Run Tests
+Use this to confirm OpenCroc can see your modules and generation path before writing files.
+
+### 4) Start Studio
 
 ```bash
-# Run all generated tests
-npx opencroc test
-
-# Run specific module
-npx opencroc test --module=knowledge-base
-
-# Run with self-healing enabled
-npx opencroc test --self-heal
+npx opencroc serve --host 0.0.0.0 --port 8765 --no-open
 ```
 
-### Validate AI Configs
+Open `http://127.0.0.1:8765` locally to inspect the workspace, tasks, and graph views.
+
+### 5) Run the full loop
 
 ```bash
-# Validate generated configurations
-npx opencroc validate --all
-
-# Compare AI-generated vs baseline results
-npx opencroc compare --baseline=report-a.json --current=report-b.json
+npx opencroc run --report html,json
 ```
 
-### Launch OpenCroc Studio
+After the first pass, you should have:
 
-OpenCroc Studio is a **pixel-art croc office** with a real-time **knowledge graph** UI. It runs as a local web server and visualizes your project structure, agent status, and test results.
+- generated artifacts under `opencroc-output/`
+- a local Studio UI for graph and task inspection
+- structured HTML and JSON reports
 
-```bash
-# Start Studio (opens browser at http://localhost:8765)
-npx opencroc serve
+## Real Demo
 
-# Custom port
-npx opencroc serve --port 3000
+### Demo: Feishu live progress smoke flow
 
-# Don't auto-open browser
-npx opencroc serve --no-open
+If your immediate goal is to verify that task progress can reliably flow back to Feishu, start with this shortest path.
 
-# Specify host (e.g. for remote access)
-npx opencroc serve --host 0.0.0.0 --port 8765
-```
+Minimal config:
 
-Studio features:
-- **Knowledge Graph Canvas** — interactive graph of your project's models, controllers, and API relations (drag, zoom, hover)
-- **Pixel Croc Office** — 6 AI agents (Parser 🐊, Analyzer 🐊, Tester 🐊, Healer 🐊, Planner 🐊, Reporter 🐊) with live status animations
-- **Real-time WebSocket** — agent status and graph changes push to the browser instantly
-- **Module Sidebar** — browse discovered modules and agent states at a glance
-- **REST API** — `GET /api/project` (graph data), `GET /api/agents` (agent states), `POST /api/project/refresh` (re-scan)
-
-### Full Pipeline (One Command)
-
-```bash
-# Run everything: generate → execute → analyze → heal → report
-npx opencroc run
-
-# With options
-npx opencroc run --module=users --self-heal --report html,json
-```
-
-### CI/CD Integration
-
-```bash
-# Generate GitHub Actions workflow
-npx opencroc ci --platform github
-
-# Generate GitLab CI pipeline
-npx opencroc ci --platform gitlab --self-heal
-```
-
-### Dashboard & Reports
-
-```bash
-# Generate visual dashboard
-npx opencroc dashboard
-
-# Generate reports in multiple formats
-npx opencroc report --format html,json,markdown
-```
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│              OpenCroc Studio (localhost:8765)                │
-│    Pixel Croc Office  +  Knowledge Graph  +  WebSocket      │
-├─────────────────────────────────────────────────────────────┤
-│                     CLI / Orchestrator                       │
-├──────────┬──────────┬──────────┬──────────┬─────────────────┤
-│  Source   │  Chain   │  Test    │ Execution│   Self-Healing  │
-│  Parser   │ Planner  │Generator │  Engine  │     Engine      │
-│           │          │          │          │                 │
-│ ts-morph  │ DAG +    │ Template │Playwright│ AI Attribution  │
-│ Model     │ Topo     │ + AI     │ + Log    │ + Controlled    │
-│ Controller│ Sort +   │ Config   │ Driven   │ Fix + Verify    │
-│ DTO       │ Greedy   │ Merge    │ Assert   │ + Rollback      │
-├──────────┴──────────┴──────────┴──────────┴─────────────────┤
-│              Observation Bus (Network + Backend Logs)         │
-├──────────────────────────────────────────────────────────────┤
-│              Report Engine (HTML / JSON / Markdown)           │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### 6-Stage Pipeline
-
-```
-Source Scan -> ER Diagram -> API Analysis -> Chain Planning -> Test Generation -> Failure Analysis
-     │            │             │              │                │                  │
-  ts-morph    Mermaid      Dependency       Topological     Playwright +      Root Cause +
-  parsing     erDiagram    DAG builder      + greedy        AI body/seed      Impact map
-```
-
-## How It Works
-
-### 1. Source Parsing
-
-OpenCroc uses [ts-morph](https://ts-morph.com) to statically analyze your backend:
-
-- **Models**: Extracts table names, column types, indexes, and foreign keys from Sequelize `Model.init()` / TypeORM `@Entity()`
-- **Controllers**: Extracts routes, HTTP methods, and path parameters from Express `router.get/post/put/delete`
-- **DTOs**: Extracts validation rules from `@IsString()`, `@IsNumber()`, `@IsOptional()` decorators
-
-### 2. AI Configuration Generation
-
-For each module, OpenCroc calls an LLM (OpenAI / ZhiPu / any OpenAI-compatible API) to generate:
-
-- **Request body templates**: Field-accurate POST/PUT payloads
-- **Seed data**: `beforeAll` setup steps with correct API sequences
-- **Parameter mappings**: Path parameter aliases (`/:id` -> `categoryId`)
-- **ID aliases**: Preventing ID conflicts across multi-resource chains
-
-Each config is validated through **3 layers**:
-1. **Schema validation**: JSON structure completeness
-2. **Semantic validation**: Field values match source code metadata
-3. **Dry-run validation**: TypeScript compilation check
-
-Failed configs are automatically fixed (up to 3 rounds) before being written.
-
-### 3. Log-Driven Completion
-
-Instead of relying on fragile `networkidle` signals:
-
-```
-Frontend Request -> Backend api_exec start log -> Backend processing -> api_exec end log
-                                                                          ↓
-                                              OpenCroc polls end logs to confirm completion
-```
-
-This catches cases where the frontend appears idle but the backend is still processing.
-
-### 4. Self-Healing Loop
-
-```
-Test Failure
-  -> AI Attribution (LLM + heuristic fallback)
-  -> Generate Fix Patch
-  -> Dry-Run Validation
-  -> Apply Patch (with backup)
-  -> Re-run Failed Tests
-  -> Verify Fix
-  -> Commit or Rollback
-```
-
-## Real-World Validation
-
-OpenCroc has been validated against a **production-scale RBAC system** (multi-tenant enterprise permission management) with 100+ Sequelize models, 75+ Express controllers, and embedded associations:
-
-```
-$ npx tsx examples/rbac-system/smoke-test.ts
-
-Modules        : 5 (default, aigc, data-platform, integration, workflow)
-ER Diagrams    : 5
-  [default] 102 tables, 65 relations
-  [aigc] 6 tables, 0 relations
-  [data-platform] 4 tables, 0 relations
-  [integration] 14 tables, 0 relations
-  [workflow] 2 tables, 0 relations
-Chain Plans    : 5
-  [aigc] 78 chains, 150 steps
-Generated Files: 78
-Duration       : 1153ms
-```
-
-Key findings:
-- **102 tables** and **65 foreign key relations** correctly extracted from flat model layout
-- **Embedded associations** (`.belongsTo()` / `.hasMany()` inside model files) detected without dedicated association files
-- **78 test files** generated across 5 modules in just over 1 second
-- Handles both flat (`models/*.ts`) and nested (`models/module/*.ts`) directory structures
-
-## Configuration
-
-```typescript
-// opencroc.config.ts
+```ts
 import { defineConfig } from 'opencroc';
 
 export default defineConfig({
-  // Backend source paths
-  backend: {
-    modelsDir: 'src/models',
-    controllersDir: 'src/controllers',
-    servicesDir: 'src/services',
-  },
-
-  // Target application
-  baseUrl: 'http://localhost:3000',
-  apiBaseUrl: 'http://localhost:3000/api',
-
-  // AI configuration
-  ai: {
-    provider: 'openai',        // 'openai' | 'zhipu' | 'custom'
-    apiKey: process.env.AI_API_KEY,
-    model: 'gpt-4o-mini',
-  },
-
-  // Test execution
-  execution: {
-    workers: 4,
-    timeout: 30_000,
-    retries: 1,
-  },
-
-  // Log-driven completion (requires backend instrumentation)
-  logCompletion: {
+  backendRoot: './backend',
+  feishu: {
     enabled: true,
-    endpoint: '/internal/test-logs',
-    pollIntervalMs: 500,
-    timeoutMs: 10_000,
-  },
-
-  // Self-healing
-  selfHealing: {
-    enabled: false,
-    fixScope: 'config-only',   // 'config-only' | 'config-and-source'
-    maxFixRounds: 3,
-    dryRunFirst: true,
+    mode: 'live',
+    messageFormat: 'text',
+    appId: process.env.FEISHU_APP_ID,
+    appSecret: process.env.FEISHU_APP_SECRET,
+    baseTaskUrl: 'http://127.0.0.1:8765',
+    progressThrottlePercent: 15,
   },
 });
 ```
 
-## Supported Tech Stacks
+Run the server:
 
-| Layer | Supported | Planned |
-|---|---|---|
-| **ORM** | Sequelize, TypeORM, Prisma, Drizzle | — |
-| **Framework** | Express | NestJS, Fastify, Koa |
-| **Test Runner** | Playwright | — |
-| **LLM** | OpenAI, ZhiPu (GLM), Ollama (local) | Anthropic |
-| **Database** | MySQL, PostgreSQL | SQLite, MongoDB |
+```bash
+npx opencroc serve --host 0.0.0.0 --port 8765 --no-open
+```
+
+Trigger the smoke flow:
+
+```bash
+curl -X POST http://127.0.0.1:8765/api/feishu/smoke/progress \
+  -H 'content-type: application/json' \
+  -d '{
+    "chatId": "oc_xxx",
+    "requestId": "om_xxx",
+    "title": "Smoke test from local OpenCroc"
+  }'
+```
+
+Expected behavior:
+
+1. OpenCroc sends an immediate ACK or task-start message
+2. OpenCroc sends staged progress updates
+3. OpenCroc sends a final completion message
+
+If this smoke flow works, your outbound Feishu callback path is alive and ready for more complex orchestration.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  A[Backend Repo] --> B[Scan / Parse / Graph]
+  B --> C[Task Orchestrator]
+  C --> D[Studio UI]
+  C --> E[Feishu Progress Bridge]
+  B --> F[Test Generation]
+  F --> G[Playwright Execution]
+  G --> H[Failure Attribution / Self-Healing]
+  G --> I[Reports]
+  B --> I
+```
+
+OpenCroc can be viewed as five connected layers:
+
+- Ingest: scan source code, models, controllers, DTOs, and relationships
+- Understand: build a knowledge graph and task-ready project context
+- Orchestrate: turn analysis into executable tasks and staged progress
+- Execute: generate tests, run them, observe failures, and repair in a controlled loop
+- Surface: publish results through Studio, reports, and Feishu callbacks
+
+## Scenario Examples
+
+- Legacy backend onboarding: scan a large service and give new engineers an explorable graph instead of a folder dump
+- Source-aware regression generation: generate Playwright cases from real backend structure before a release cut
+- Delivery progress in chat: run a long task and send ACK, staged progress, and completion back to Feishu
+- Architecture review: bring repo structure, module relationships, and generated reports into review meetings
+- Runtime debugging: inspect tasks and agent activity in local Studio instead of stitching logs manually
 
 ## Comparison
 
-| Feature | OpenCroc | Playwright | Metersphere | auto-playwright |
-|---|---|---|---|---|
-| Source-aware generation | ✅ | ❌ | ❌ | ❌ |
-| AI config generation + validation | ✅ | ❌ | ❌ | ❌ |
-| Log-driven completion | ✅ | ❌ | ❌ | ❌ |
-| Failure chain attribution | ✅ | ❌ | Partial | ❌ |
-| Self-healing with rollback | ✅ | ❌ | ❌ | ❌ |
-| API dependency DAG | ✅ | ❌ | ❌ | ❌ |
-| Zero-config test generation | ✅ | Codegen only | Manual | NL->action |
-| Impact blast radius analysis | ✅ | ❌ | ❌ | ❌ |
+| Dimension | OpenCroc | Playwright + hand-written scripts | Repo search / code QA tools | Internal dev portals |
+| --- | --- | --- | --- | --- |
+| Repo-to-graph understanding | Built in | Manual | Partial | Usually external |
+| Task stages and progress model | Built in | Manual | Usually no | Partial |
+| Source-aware test generation | Built in | Manual | No | No |
+| Feishu progress callbacks | Built in | Manual integration | No | Rare |
+| Local visual workspace | Built in | No | Partial | Usually yes |
+| Failure attribution and self-healing | Built in | Manual | No | No |
+| Best fit | Teams that want repo intelligence plus execution | Teams writing and maintaining every test by hand | Teams focused on code lookup and Q&A | Teams focused on service catalog and internal docs |
 
 ## Roadmap
 
-- [x] 6-stage source-to-test pipeline
-- [x] AI configuration generation with 3-layer validation
-- [x] Controlled self-healing loop
-- [x] Log-driven completion detection
-- [x] Failure chain attribution + impact analysis
-- [x] TypeORM / Prisma adapter
-- [x] Ollama local LLM support
-- [x] Real-world validation (102 tables, 65 relations, 78 generated tests)
-- [x] GitHub Actions / GitLab CI integration
-- [x] VS Code extension scaffold
-- [x] Plugin system
-- [x] HTML / JSON / Markdown report generation
-- [x] NestJS controller parser
-- [x] Visual dashboard (opencroc.com)
-- [x] Drizzle ORM adapter
-- [x] AI Config Suggester + Enhanced DTO-aware Suggester
-- [x] Auto-Fixer (4 strategies: interface-path, DTO field, seed dependency, param mapping)
-- [x] 3-layer config validation (schema → semantic → dry-run)
-- [x] DTO Parser (ts-morph interface + express-validator extraction)
-- [x] Baseline Comparator (Playwright report diff + regression detection)
-- [x] Module config preset loader
-- [x] LLM-enhanced chain planner
-- [x] Runtime infrastructure (Playwright config, auth setup, teardown, network monitor)
-- [x] Full orchestration pipeline
-- [x] Advanced reporters (checklist, workorder, token tracking)
-- [x] OpenCroc Studio — pixel croc office + knowledge graph UI (`opencroc serve`)
+- Current: Studio workspace, source-aware scanning, generation, reporting, and Feishu smoke progress are already in place
+- Next: richer Feishu card interactions, stronger waiting and decision flows, better task summaries, and more polished Studio task views
+- Later: more adapters, remote runners, multi-user workflows, and broader repo intelligence coverage
 
-## Release Snapshot
-
-- Current stable release: `1.3.0`
-- npm dist-tag `latest`: `1.3.0`
-- Roadmap status: M1 Studio delivered
-- Full-suite quality gate: 34 test files / 373 tests passing on Node.js 20.x & 22.x
-
-### Version Rhythm
-
-- `0.3.x`: plugin system, CI templates, reporters, VS Code scaffold, CI hardening
-- `0.4.x`: NestJS controller parser
-- `0.5.x`: Drizzle ORM adapter
-- `0.6.x`: visual dashboard + Windows Vitest stability hardening
-- `0.7.x – 0.9.x`: runtime infrastructure (Playwright generators, auth, log-driven detection, rules engine)
-- `1.0.0`: full orchestration pipeline
-- `1.1.0`: advanced self-healing (dialog loop, controlled fixer, auto-fix PR generation)
-- `1.2.0`: advanced reporters (checklist, workorder, token tracking) + Sprint 0-3 migration complete
-- `1.3.0`: OpenCroc Studio M1 — Fastify server, knowledge graph API, pixel croc office frontend
-
-### Release Verification
-
-```bash
-npm run lint
-npm run typecheck
-npm test
-npm view opencroc version dist-tags --json
-```
-
-## Documentation
-
-Visit **[opencroc.com](https://opencroc.com)** for full documentation, or browse:
+## More Docs
 
 - [Architecture Guide](docs/architecture.md)
 - [Configuration Reference](docs/configuration.md)
@@ -405,10 +194,6 @@ Visit **[opencroc.com](https://opencroc.com)** for full documentation, or browse
 - [Self-Healing Guide](docs/self-healing.md)
 - [Troubleshooting](docs/troubleshooting.md)
 
-## Contributing
-
-We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
 ## License
 
-[MIT](LICENSE) © 2026 OpenCroc Contributors
+[MIT](LICENSE) Copyright 2026 OpenCroc Contributors

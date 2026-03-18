@@ -9,6 +9,8 @@ import { registerAgentRoutes } from './routes/agents.js';
 import { registerStudioRoutes } from './routes/studio.js';
 import { CrocOffice } from './croc-office.js';
 import { FileStudioSnapshotStore } from './studio-store.js';
+import { FeishuProgressBridge } from './feishu-bridge.js';
+import { registerFeishuIngressRoutes } from './feishu-ingress.js';
 import type { OpenCrocConfig } from '../types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -59,11 +61,22 @@ export async function startServer(opts: ServeOptions): Promise<void> {
   // --- Croc Office (Agent orchestrator) ---
   const office = new CrocOffice(opts.config, opts.cwd);
   const snapshotStore = new FileStudioSnapshotStore(resolve(opts.cwd, '.opencroc/studio-snapshot.json'));
+  const feishuBridge = new FeishuProgressBridge({
+    send: async () => {
+      // Skeleton delivery only. Real Feishu send/update hooks are injected by the embedding runtime.
+    },
+  }, {
+    baseTaskUrl: `http://${opts.host === '0.0.0.0' ? 'localhost' : opts.host}:${opts.port}`,
+    enabled: opts.config.feishu?.enabled ?? true,
+    progressThrottlePercent: opts.config.feishu?.progressThrottlePercent,
+  });
+  office.setFeishuBridge(feishuBridge);
 
   // --- REST API routes ---
   registerProjectRoutes(app, office);
   registerAgentRoutes(app, office);
   registerStudioRoutes(app, office, snapshotStore);
+  registerFeishuIngressRoutes(app, office, feishuBridge);
 
   // --- WebSocket endpoint for real-time updates ---
   app.register(async (fastify) => {

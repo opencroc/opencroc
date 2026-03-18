@@ -2,15 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { CrocOffice } from '../croc-office.js';
 import type { ExecutionRunMode } from '../../execution/types.js';
 import type { TaskDecisionPrompt } from '../task-store.js';
-import { FeishuProgressBridge } from '../feishu-bridge.js';
-
 export function registerAgentRoutes(app: FastifyInstance, office: CrocOffice): void {
-  const feishuBridge = new FeishuProgressBridge({
-    send: async () => {
-      // Skeleton delivery only. Real Feishu message editing/sending is wired outside OpenCroc server runtime.
-    },
-  });
-  office.setFeishuBridge(feishuBridge);
   // GET /api/agents — list all croc agents
   app.get('/api/agents', async () => {
     return office.getAgents();

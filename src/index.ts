@@ -127,6 +127,16 @@ export { createAdapter, detectAdapter, resolveAdapter } from './adapters/registr
 export type { OpenCrocPlugin, PluginRegistry } from './plugins/types.js';
 export { createPluginRegistry, definePlugin } from './plugins/index.js';
 
+// --- Feishu Bridge ---
+export type {
+  FeishuBridgeConfig,
+  FeishuTaskTarget,
+  FeishuOutboundMessage,
+  FeishuBridgeDelivery,
+} from './server/feishu-bridge.js';
+export { FeishuProgressBridge } from './server/feishu-bridge.js';
+export { FeishuApiDelivery } from './server/feishu-delivery.js';
+
 // --- CI Templates ---
 export { generateCiTemplate, listCiPlatforms, generateGitHubActionsTemplate, generateGitLabCITemplate } from './ci/index.js';
 

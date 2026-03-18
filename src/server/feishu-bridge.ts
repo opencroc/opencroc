@@ -4,6 +4,11 @@ export interface FeishuBridgeConfig {
   enabled?: boolean;
   baseTaskUrl?: string;
   progressThrottlePercent?: number;
+  appId?: string;
+  appSecret?: string;
+  tenantAccessToken?: string;
+  apiBaseUrl?: string;
+  mode?: 'mock' | 'live';
 }
 
 export interface FeishuTaskTarget {

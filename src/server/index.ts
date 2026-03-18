@@ -10,6 +10,7 @@ import { registerStudioRoutes } from './routes/studio.js';
 import { CrocOffice } from './croc-office.js';
 import { FileStudioSnapshotStore } from './studio-store.js';
 import { FeishuProgressBridge } from './feishu-bridge.js';
+import { FeishuApiDelivery } from './feishu-delivery.js';
 import { registerFeishuIngressRoutes } from './feishu-ingress.js';
 import type { OpenCrocConfig } from '../types.js';
 
@@ -61,15 +62,13 @@ export async function startServer(opts: ServeOptions): Promise<void> {
   // --- Croc Office (Agent orchestrator) ---
   const office = new CrocOffice(opts.config, opts.cwd);
   const snapshotStore = new FileStudioSnapshotStore(resolve(opts.cwd, '.opencroc/studio-snapshot.json'));
-  const feishuBridge = new FeishuProgressBridge({
-    send: async () => {
-      // Skeleton delivery only. Real Feishu send/update hooks are injected by the embedding runtime.
-    },
-  }, {
-    baseTaskUrl: `http://${opts.host === '0.0.0.0' ? 'localhost' : opts.host}:${opts.port}`,
+  const feishuConfig = {
+    ...(opts.config.feishu ?? {}),
+    baseTaskUrl: opts.config.feishu?.baseTaskUrl ?? `http://${opts.host === '0.0.0.0' ? 'localhost' : opts.host}:${opts.port}`,
     enabled: opts.config.feishu?.enabled ?? true,
     progressThrottlePercent: opts.config.feishu?.progressThrottlePercent,
-  });
+  };
+  const feishuBridge = new FeishuProgressBridge(new FeishuApiDelivery(feishuConfig), feishuConfig);
   office.setFeishuBridge(feishuBridge);
 
   // --- REST API routes ---

@@ -123,13 +123,13 @@ export class CrocOffice {
     this.broadcast('log', { message, level, time: Date.now() });
     if (this.activeTaskId) {
       const task = this.taskStore.log(this.activeTaskId, message, level);
-      this.emitTaskUpdate(task);
+      void this.emitTaskUpdate(task);
     }
   }
 
   createTask(kind: string, title: string, stageLabels: Array<{ key: string; label: string }>): TaskRecord {
     const task = this.taskStore.create({ kind, title, stageLabels });
-    this.emitTaskUpdate(task);
+    void this.emitTaskUpdate(task);
     return task;
   }
 
@@ -173,40 +173,64 @@ export class CrocOffice {
     this.feishuBridge?.bindTask(taskId, target);
   }
 
-  private emitTaskUpdate(task: TaskRecord | undefined): void {
+  unbindTaskFromFeishu(taskId: string): void {
+    this.feishuBridge?.unbindTask(taskId);
+  }
+
+  private async emitTaskUpdate(task: TaskRecord | undefined, waitForDelivery = false): Promise<void> {
     if (!task) return;
     this.broadcast('task:update', task);
-    void this.feishuBridge?.handleTaskUpdate(task);
+    const delivery = this.feishuBridge?.handleTaskUpdate(task);
+    if (!delivery) return;
+    if (waitForDelivery) {
+      await delivery;
+      return;
+    }
+    try {
+      await delivery;
+    } catch (error) {
+      this.broadcast('log', {
+        message: `Feishu progress delivery failed: ${error instanceof Error ? error.message : String(error)}`,
+        level: 'error',
+        time: Date.now(),
+      });
+    }
   }
 
   markTaskRunning(stageKey: string, detail: string, progress: number): void {
     if (!this.activeTaskId) return;
     const task = this.taskStore.markRunning(this.activeTaskId, stageKey, detail, progress);
-    this.emitTaskUpdate(task);
+    void this.emitTaskUpdate(task);
+  }
+
+  async markTaskRunningAndWait(stageKey: string, detail: string, progress: number): Promise<void> {
+    if (!this.activeTaskId) return;
+    const task = this.taskStore.markRunning(this.activeTaskId, stageKey, detail, progress);
+    await this.emitTaskUpdate(task, true);
   }
 
   completeTaskStage(stageKey: string, detail: string, progress: number): void {
     if (!this.activeTaskId) return;
     const task = this.taskStore.updateStage(this.activeTaskId, stageKey, { status: 'done', detail }, progress);
-    this.emitTaskUpdate(task);
+    void this.emitTaskUpdate(task);
   }
 
   waitOnTask(waitingFor: string, detail: string, progress: number, decision?: TaskDecisionPrompt): void {
     if (!this.activeTaskId) return;
     const task = this.taskStore.markWaiting(this.activeTaskId, waitingFor, detail, progress, decision);
-    this.emitTaskUpdate(task);
+    void this.emitTaskUpdate(task);
   }
 
   finishTask(summary: string): void {
     if (!this.activeTaskId) return;
     const task = this.taskStore.markDone(this.activeTaskId, summary);
-    this.emitTaskUpdate(task);
+    void this.emitTaskUpdate(task);
   }
 
   failTask(message: string): void {
     if (!this.activeTaskId) return;
     const task = this.taskStore.markFailed(this.activeTaskId, message);
-    this.emitTaskUpdate(task);
+    void this.emitTaskUpdate(task);
   }
 
   getAgents(): CrocAgent[] {

@@ -116,6 +116,7 @@ export class TaskStore {
       task.status = 'running';
       if (typeof progress === 'number') task.progress = clampProgress(progress);
       if (!stageKey) return;
+      const previousStageKey = task.currentStageKey;
       task.currentStageKey = stageKey;
       for (const stage of task.stages) {
         if (stage.key === stageKey) {
@@ -123,7 +124,12 @@ export class TaskStore {
           stage.status = 'running';
           if (detail) stage.detail = detail;
         } else if (stage.status === 'running') {
-          stage.status = 'pending';
+          if (stage.key === previousStageKey) {
+            stage.status = 'done';
+            stage.completedAt ??= now();
+          } else {
+            stage.status = 'pending';
+          }
         }
       }
       task.events.push({

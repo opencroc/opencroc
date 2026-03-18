@@ -12,6 +12,7 @@ import { FileStudioSnapshotStore } from './studio-store.js';
 import { FeishuProgressBridge } from './feishu-bridge.js';
 import { FeishuApiDelivery } from './feishu-delivery.js';
 import { registerFeishuIngressRoutes } from './feishu-ingress.js';
+import { registerFeishuSmokeRoutes } from './feishu-smoke.js';
 import type { OpenCrocConfig } from '../types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -76,6 +77,7 @@ export async function startServer(opts: ServeOptions): Promise<void> {
   registerAgentRoutes(app, office);
   registerStudioRoutes(app, office, snapshotStore);
   registerFeishuIngressRoutes(app, office, feishuBridge);
+  registerFeishuSmokeRoutes(app, office);
 
   // --- WebSocket endpoint for real-time updates ---
   app.register(async (fastify) => {

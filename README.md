@@ -130,6 +130,53 @@ npx opencroc serve --host 0.0.0.0 --port 8765
 - The web source is organized under `src/web` with `app`, `pages`, `features`, `shared`, `styles`, and `public`
 - Legacy entry URLs such as `/index-studio.html` and `/index-v2-pixel.html` are redirected to SPA routes
 
+### Feishu Progress Bridge (MVP)
+
+OpenCroc now includes an MVP Feishu progress bridge for complex tasks.
+
+Minimal config example:
+
+```ts
+import { defineConfig } from 'opencroc';
+
+export default defineConfig({
+  backendRoot: './backend',
+  feishu: {
+    enabled: true,
+    mode: 'live',
+    messageFormat: 'text',
+    appId: process.env.FEISHU_APP_ID,
+    appSecret: process.env.FEISHU_APP_SECRET,
+    baseTaskUrl: 'http://127.0.0.1:8765',
+    progressThrottlePercent: 15,
+  },
+});
+```
+
+Current endpoints:
+
+- `POST /api/feishu/webhook` — receive Feishu events and create chat tasks for complex messages
+- `POST /api/feishu/smoke/progress` — start a smoke task that pushes staged progress updates back to Feishu
+- `POST /api/feishu/tasks/:id/waiting` — move a task into waiting/decision state
+
+Quick smoke test:
+
+```bash
+curl -X POST http://127.0.0.1:8765/api/feishu/smoke/progress \
+  -H 'content-type: application/json' \
+  -d '{
+    "chatId": "oc_xxx",
+    "requestId": "om_xxx",
+    "title": "Smoke test from local OpenCroc"
+  }'
+```
+
+If Feishu live delivery is configured correctly, you should receive:
+
+1. an immediate ACK / task start message
+2. several staged progress updates
+3. a final completion message
+
 ### Studio Features
 
 - Knowledge graph canvas for modules, APIs, and relations

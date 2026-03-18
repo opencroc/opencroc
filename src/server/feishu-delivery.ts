@@ -1,4 +1,4 @@
-import type { FeishuBridgeConfig, FeishuBridgeDelivery, FeishuOutboundMessage } from './feishu-bridge.js';
+import type { FeishuBridgeConfig, FeishuBridgeDelivery, FeishuDeliveryReceipt, FeishuOutboundMessage } from './feishu-bridge.js';
 
 interface TokenCache {
   value: string;
@@ -78,7 +78,7 @@ export class FeishuApiDelivery implements FeishuBridgeDelivery {
     return json.tenant_access_token;
   }
 
-  async send(message: FeishuOutboundMessage): Promise<void> {
+  async send(message: FeishuOutboundMessage): Promise<FeishuDeliveryReceipt | void> {
     if (!this.isLive()) {
       return;
     }
@@ -111,5 +111,10 @@ export class FeishuApiDelivery implements FeishuBridgeDelivery {
     if (json.code !== 0) {
       throw new Error(`Feishu send message error: ${json.msg || json.code}`);
     }
+
+    return {
+      messageId: json.data?.message_id,
+      rootId: json.data?.root_id,
+    };
   }
 }

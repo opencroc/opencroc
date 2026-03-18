@@ -31,8 +31,14 @@ export interface FeishuOutboundMessage {
   decision?: TaskDecisionPrompt;
 }
 
+export interface FeishuDeliveryReceipt {
+  messageId?: string;
+  rootId?: string;
+  threadId?: string;
+}
+
 export interface FeishuBridgeDelivery {
-  send(message: FeishuOutboundMessage): Promise<void>;
+  send(message: FeishuOutboundMessage): Promise<FeishuDeliveryReceipt | void>;
 }
 
 export interface FeishuTaskRequest {
@@ -56,6 +62,10 @@ interface TaskSubscription {
   lastProgressSent: number;
   lastEventType?: TaskEvent['type'];
   ackSent: boolean;
+  firstMessageId?: string;
+  lastMessageId?: string;
+  rootId?: string;
+  threadId?: string;
 }
 
 function formatTaskLink(baseTaskUrl: string | undefined, taskId: string): string | undefined {
@@ -144,6 +154,16 @@ function formatRequestAckText(request: FeishuTaskRequest, taskId: string): strin
 }
 
 export class FeishuProgressBridge {
+  private async sendAndTrack(taskId: string, message: FeishuOutboundMessage): Promise<void> {
+    const receipt = await this.delivery.send(message);
+    const subscription = this.subscriptions.get(taskId);
+    if (!subscription || !receipt) return;
+    subscription.firstMessageId ??= receipt.messageId;
+    subscription.lastMessageId = receipt.messageId ?? subscription.lastMessageId;
+    subscription.rootId = receipt.rootId ?? subscription.rootId;
+    subscription.threadId = receipt.threadId ?? subscription.threadId;
+  }
+
   private readonly delivery: FeishuBridgeDelivery;
   private readonly config: Required<Pick<FeishuBridgeConfig, 'progressThrottlePercent'>> & Omit<FeishuBridgeConfig, 'progressThrottlePercent'>;
   private readonly subscriptions = new Map<string, TaskSubscription>();
@@ -162,11 +182,24 @@ export class FeishuProgressBridge {
       target,
       lastProgressSent: -1,
       ackSent: false,
+      threadId: target.threadId,
     });
   }
 
   unbindTask(taskId: string): void {
     this.subscriptions.delete(taskId);
+  }
+
+  getTaskBinding(taskId: string): { target: FeishuTaskTarget; firstMessageId?: string; lastMessageId?: string; rootId?: string; threadId?: string } | undefined {
+    const subscription = this.subscriptions.get(taskId);
+    if (!subscription) return undefined;
+    return {
+      target: subscription.target,
+      firstMessageId: subscription.firstMessageId,
+      lastMessageId: subscription.lastMessageId,
+      rootId: subscription.rootId,
+      threadId: subscription.threadId,
+    };
   }
 
   createRequestAck(taskId: string, request: FeishuTaskRequest): FeishuTaskRequestAck {
@@ -190,7 +223,14 @@ export class FeishuProgressBridge {
 
   async sendRequestAck(taskId: string, request: FeishuTaskRequest): Promise<FeishuTaskRequestAck> {
     const ack = this.createRequestAck(taskId, request);
-    await this.delivery.send(ack.message);
+    const receipt = await this.delivery.send(ack.message);
+    const subscription = this.subscriptions.get(taskId);
+    if (subscription && receipt) {
+      subscription.firstMessageId ??= receipt.messageId;
+      subscription.lastMessageId = receipt.messageId ?? subscription.lastMessageId;
+      subscription.rootId = receipt.rootId ?? subscription.rootId;
+      subscription.threadId = receipt.threadId ?? subscription.threadId;
+    }
     return ack;
   }
 
@@ -206,7 +246,7 @@ export class FeishuProgressBridge {
     if (!subscription.ackSent) {
       subscription.ackSent = true;
       subscription.lastProgressSent = task.progress;
-      await this.delivery.send({
+      await this.sendAndTrack(task.id, {
         kind: 'task-ack',
         target: subscription.target,
         taskId: task.id,
@@ -222,7 +262,7 @@ export class FeishuProgressBridge {
 
     if (task.status === 'waiting') {
       subscription.lastEventType = 'waiting';
-      await this.delivery.send({
+      await this.sendAndTrack(task.id, {
         kind: 'task-waiting',
         target: subscription.target,
         taskId: task.id,
@@ -239,7 +279,7 @@ export class FeishuProgressBridge {
 
     if (task.status === 'done') {
       subscription.lastEventType = 'done';
-      await this.delivery.send({
+      await this.sendAndTrack(task.id, {
         kind: 'task-complete',
         target: subscription.target,
         taskId: task.id,
@@ -255,7 +295,7 @@ export class FeishuProgressBridge {
 
     if (task.status === 'failed') {
       subscription.lastEventType = 'failed';
-      await this.delivery.send({
+      await this.sendAndTrack(task.id, {
         kind: 'task-failed',
         target: subscription.target,
         taskId: task.id,
@@ -276,7 +316,7 @@ export class FeishuProgressBridge {
 
     subscription.lastProgressSent = task.progress;
     subscription.lastEventType = latest?.type;
-    await this.delivery.send({
+    await this.sendAndTrack(task.id, {
       kind: 'task-progress',
       target: subscription.target,
       taskId: task.id,

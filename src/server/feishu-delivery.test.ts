@@ -40,8 +40,9 @@ describe('FeishuApiDelivery', () => {
     global.fetch = fetchMock as typeof fetch;
     const delivery = new FeishuApiDelivery({ enabled: true, mode: 'live', tenantAccessToken: 'tenant_token_xxx' });
 
-    await delivery.send(sampleMessage);
+    const receipt = await delivery.send(sampleMessage);
 
+    expect(receipt).toEqual({ messageId: 'om_001', rootId: undefined });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/im/v1/messages?receive_id_type=chat_id');
@@ -62,8 +63,9 @@ describe('FeishuApiDelivery', () => {
     global.fetch = fetchMock as typeof fetch;
     const delivery = new FeishuApiDelivery({ enabled: true, mode: 'live', appId: 'cli_xxx', appSecret: 'sec_xxx' });
 
-    await delivery.send(sampleMessage);
+    const receipt = await delivery.send(sampleMessage);
 
+    expect(receipt).toEqual({ messageId: 'om_002', rootId: undefined });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect((fetchMock.mock.calls[0] as [string])[0]).toContain('/auth/v3/tenant_access_token/internal');
     expect((fetchMock.mock.calls[1] as [string])[0]).toContain('/im/v1/messages?receive_id_type=chat_id');

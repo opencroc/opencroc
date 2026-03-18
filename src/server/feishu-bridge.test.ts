@@ -24,7 +24,7 @@ function makeTask(partial: Partial<TaskRecord>): TaskRecord {
 describe('FeishuProgressBridge', () => {
   it('creates and sends request ack with taskId before execution updates', async () => {
     const sent: FeishuOutboundMessage[] = [];
-    const bridge = new FeishuProgressBridge({ send: async (message) => { sent.push(message); } }, { baseTaskUrl: 'https://demo.opencroc.ai' });
+    const bridge = new FeishuProgressBridge({ send: async (message) => { sent.push(message); return { messageId: 'om_ack_1' }; } }, { baseTaskUrl: 'https://demo.opencroc.ai' });
     const request: FeishuTaskRequest = {
       title: 'Analyze repository and report progress',
       target: { chatId: 'chat_123', source: 'feishu' },
@@ -45,7 +45,7 @@ describe('FeishuProgressBridge', () => {
 
   it('sends ack on first task update', async () => {
     const sent: FeishuOutboundMessage[] = [];
-    const bridge = new FeishuProgressBridge({ send: async (message) => { sent.push(message); } }, { baseTaskUrl: 'https://demo.opencroc.ai' });
+    const bridge = new FeishuProgressBridge({ send: async (message) => { sent.push(message); return { messageId: `om_${sent.length}` }; } }, { baseTaskUrl: 'https://demo.opencroc.ai' });
     bridge.bindTask('task_123', { chatId: 'chat_123', source: 'feishu' });
 
     await bridge.handleTaskUpdate(makeTask({ progress: 12 }));
@@ -54,6 +54,8 @@ describe('FeishuProgressBridge', () => {
     expect(sent[0]?.kind).toBe('task-ack');
     expect(sent[0]?.text).toContain('任务已开始');
     expect(sent[0]?.link).toBe('https://demo.opencroc.ai/tasks/task_123');
+    expect(bridge.getTaskBinding('task_123')?.firstMessageId).toBe('om_1');
+    expect(bridge.getTaskBinding('task_123')?.lastMessageId).toBe('om_1');
   });
 
   it('throttles low-signal log updates', async () => {

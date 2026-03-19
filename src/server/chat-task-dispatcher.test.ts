@@ -21,4 +21,9 @@ describe('classifyChatTaskIntent', () => {
     const plan = classifyChatTaskIntent('帮我分析 OpenCroc 的平台定位和 roadmap');
     expect(plan.intent).toBe('analysis');
   });
+
+  it('keeps repository introduction questions on analysis intent', () => {
+    const plan = classifyChatTaskIntent('帮我分析这个项目是干啥用的');
+    expect(plan.intent).toBe('analysis');
+  });
 });

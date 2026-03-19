@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { FeishuProgressBridge, type FeishuOutboundMessage, type FeishuTaskRequest } from './feishu-bridge.js';
 import type { TaskRecord } from './task-store.js';
 
@@ -57,6 +57,49 @@ describe('FeishuProgressBridge', () => {
     expect(sent[0]?.link).toBe('https://demo.opencroc.ai/tasks/task_123');
     expect(bridge.getTaskBinding('task_123')?.firstMessageId).toBe('om_1');
     expect(bridge.getTaskBinding('task_123')?.lastMessageId).toBe('om_1');
+  });
+
+  it('does not deliver the pre-bind queued task snapshot after a later bind', async () => {
+    const sent: FeishuOutboundMessage[] = [];
+    const bridge = new FeishuProgressBridge({
+      send: async (message) => {
+        sent.push(message);
+        return { messageId: `om_${sent.length}` };
+      },
+    });
+
+    const queuedUpdate = bridge.handleTaskUpdate(makeTask({
+      status: 'queued',
+      progress: 0,
+      currentStageKey: undefined,
+      stages: [
+        { key: 'receive', label: 'Receive task', status: 'pending' },
+        { key: 'scan', label: 'Scan codebase', status: 'pending' },
+      ],
+      events: [{ type: 'created', message: 'Task created', time: Date.now() }],
+    }));
+
+    bridge.bindTask('task_123', { chatId: 'chat_123', source: 'feishu' });
+    await queuedUpdate;
+
+    expect(sent).toHaveLength(0);
+
+    await bridge.handleTaskUpdate(makeTask({
+      progress: 8,
+      currentStageKey: 'receive',
+      stages: [
+        { key: 'receive', label: 'Receive task', status: 'running', detail: 'Task accepted' },
+        { key: 'scan', label: 'Scan codebase', status: 'pending' },
+      ],
+      events: [
+        { type: 'created', message: 'Task created', time: Date.now() },
+        { type: 'progress', message: 'Task accepted', progress: 8, stageKey: 'receive', time: Date.now() },
+      ],
+    }));
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.kind).toBe('task-ack');
+    expect(sent[0]?.progress).toBe(8);
   });
 
   it('throttles low-signal log updates', async () => {
@@ -164,5 +207,45 @@ describe('FeishuProgressBridge', () => {
     expect(sent).toHaveLength(2);
     expect(sent[1]?.kind).toBe('task-complete');
     expect(sent[1]?.text).toContain('任务已完成');
+  });
+
+  it('serializes progress delivery for the same task', async () => {
+    vi.useFakeTimers();
+    const sent: Array<{ kind: string; progress: number }> = [];
+    const bridge = new FeishuProgressBridge({
+      send: async (message) => {
+        const delay = message.progress === 10 ? 30 : message.progress === 18 ? 20 : 10;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        sent.push({ kind: message.kind, progress: message.progress });
+        return { messageId: `om_${sent.length + 1}` };
+      },
+    });
+    bridge.bindTask('task_123', { chatId: 'chat_123', source: 'feishu' });
+
+    const first = bridge.handleTaskUpdate(makeTask({ progress: 10 }));
+    const second = bridge.handleTaskUpdate(makeTask({
+      progress: 18,
+      events: [
+        { type: 'created', message: 'Task created', time: Date.now() },
+        { type: 'progress', message: 'Classified request', progress: 18, stageKey: 'scan', time: Date.now() },
+      ],
+    }));
+    const third = bridge.handleTaskUpdate(makeTask({
+      progress: 30,
+      events: [
+        { type: 'created', message: 'Task created', time: Date.now() },
+        { type: 'progress', message: 'Gathering context', progress: 30, stageKey: 'scan', time: Date.now() },
+      ],
+    }));
+
+    await vi.runAllTimersAsync();
+    await Promise.all([first, second, third]);
+
+    expect(sent).toEqual([
+      { kind: 'task-ack', progress: 10 },
+      { kind: 'task-progress', progress: 18 },
+      { kind: 'task-progress', progress: 30 },
+    ]);
+    vi.useRealTimers();
   });
 });

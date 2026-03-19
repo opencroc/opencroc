@@ -5,6 +5,7 @@ import type { ScanResult } from '../graph/types.js';
 import type { SummonPlan } from '../agents/task-router.js';
 import { TaskStore, type TaskDecisionPrompt, type TaskRecord } from './task-store.js';
 import type { FeishuProgressBridge, FeishuTaskTarget } from './feishu-bridge.js';
+import { buildProjectChatAnswer, collectProjectChatSnapshot } from './chat-analysis.js';
 
 export interface CrocAgent {
   id: string;
@@ -329,6 +330,51 @@ export class CrocOffice {
       this.log(`❌ Scan failed: ${message}`, 'error');
       this.failTask(message);
       return { ok: false, task: 'scan', duration: Date.now() - start, error: message };
+    } finally {
+      this.running = false;
+      this.activateTask(null);
+    }
+  }
+
+  async runChatAnalysis(prompt: string): Promise<TaskResult> {
+    if (this.running) return { ok: false, task: 'analysis', duration: 0, error: 'Another task is running' };
+    if (!this.activeTaskId) return { ok: false, task: 'analysis', duration: 0, error: 'No active chat task' };
+
+    this.running = true;
+    const start = Date.now();
+    const taskId = this.activeTaskId;
+
+    try {
+      this.markTaskRunning('gather', 'Reading repository metadata and documentation', 30);
+      const projectInfo = await this.getProjectInfo();
+      this.completeTaskStage('gather', `Collected ${projectInfo.stats.modules} modules and repository metadata`, 58);
+
+      this.markTaskRunning('generate', 'Summarizing project purpose and core capabilities', 76);
+      const snapshot = await collectProjectChatSnapshot(this.cwd, {
+        projectName: projectInfo.name,
+        projectType: projectInfo.adapter,
+        frameworks: [],
+        modules: projectInfo.stats.modules,
+        apiEndpoints: projectInfo.stats.endpoints,
+        dataModels: projectInfo.stats.models,
+      });
+      const summary = buildProjectChatAnswer(prompt, snapshot);
+      this.completeTaskStage('generate', 'Repository summary drafted', 90);
+
+      this.markTaskRunning('finalize', 'Sending final repository summary', 96);
+      this.finishTask(summary);
+
+      return {
+        ok: true,
+        task: 'analysis',
+        duration: Date.now() - start,
+        details: { taskId },
+      };
+    } catch (err) {
+      const message = String(err);
+      this.log(`❌ Chat analysis failed: ${message}`, 'error');
+      this.failTask(message);
+      return { ok: false, task: 'analysis', duration: Date.now() - start, error: message };
     } finally {
       this.running = false;
       this.activateTask(null);

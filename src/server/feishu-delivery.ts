@@ -22,8 +22,43 @@ interface FeishuSendMessageResponse {
   };
 }
 
+type FeishuReceiveIdType = 'chat_id' | 'open_id' | 'union_id';
+
 function resolveApiBaseUrl(config: FeishuBridgeConfig): string {
   return (config.apiBaseUrl || 'https://open.feishu.cn/open-apis').replace(/\/$/, '');
+}
+
+function resolveReceiveTarget(rawTarget: string): { receiveId: string; receiveIdType: FeishuReceiveIdType } {
+  let value = rawTarget.trim();
+  value = value.replace(/^(feishu|lark):/i, '').trim();
+
+  if (/^(chat|group):/i.test(value)) {
+    return {
+      receiveId: value.replace(/^(chat|group):/i, '').trim(),
+      receiveIdType: 'chat_id',
+    };
+  }
+
+  if (/^(user|dm):/i.test(value)) {
+    return {
+      receiveId: value.replace(/^(user|dm):/i, '').trim(),
+      receiveIdType: 'open_id',
+    };
+  }
+
+  if (/^oc_/i.test(value)) {
+    return { receiveId: value, receiveIdType: 'chat_id' };
+  }
+
+  if (/^ou_/i.test(value)) {
+    return { receiveId: value, receiveIdType: 'open_id' };
+  }
+
+  if (/^on_/i.test(value)) {
+    return { receiveId: value, receiveIdType: 'union_id' };
+  }
+
+  return { receiveId: value, receiveIdType: 'chat_id' };
 }
 
 function formatOutboundText(message: FeishuOutboundMessage): string {
@@ -105,14 +140,15 @@ export class FeishuApiDelivery implements FeishuBridgeDelivery {
 
     const token = await this.getTenantAccessToken();
     const payload = resolveMessagePayload(message);
-    const response = await fetch(`${resolveApiBaseUrl(this.config)}/im/v1/messages?receive_id_type=chat_id`, {
+    const target = resolveReceiveTarget(message.target.chatId);
+    const response = await fetch(`${resolveApiBaseUrl(this.config)}/im/v1/messages?receive_id_type=${target.receiveIdType}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        receive_id: message.target.chatId,
+        receive_id: target.receiveId,
         msg_type: payload.msgType,
         content: payload.content,
         reply_in_thread: Boolean(message.target.threadId || message.target.rootMessageId),
@@ -122,7 +158,8 @@ export class FeishuApiDelivery implements FeishuBridgeDelivery {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to send Feishu message: ${response.status} ${response.statusText}`);
+      const detail = await response.text().catch(() => '');
+      throw new Error(`Failed to send Feishu message: ${response.status} ${response.statusText}${detail ? ` - ${detail}` : ''}`);
     }
 
     const json = await response.json() as FeishuSendMessageResponse;

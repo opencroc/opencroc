@@ -86,6 +86,8 @@ interface TaskSubscription {
   replyToMessageId?: string;
 }
 
+type DeliveryQueue = Promise<void>;
+
 function formatTaskLink(baseTaskUrl: string | undefined, taskId: string): string | undefined {
   if (!baseTaskUrl) return undefined;
   return `${baseTaskUrl.replace(/\/$/, '')}/tasks/${taskId}`;
@@ -260,6 +262,18 @@ function createTaskCard(message: FeishuOutboundMessage): FeishuCardPayload {
 }
 
 export class FeishuProgressBridge {
+  private enqueueDelivery(taskId: string, deliver: () => Promise<void>): Promise<void> {
+    const previous = this.deliveryQueues.get(taskId) ?? Promise.resolve();
+    const next = previous.catch(() => {}).then(deliver);
+    const tracked = next.finally(() => {
+      if (this.deliveryQueues.get(taskId) === tracked) {
+        this.deliveryQueues.delete(taskId);
+      }
+    });
+    this.deliveryQueues.set(taskId, tracked);
+    return tracked;
+  }
+
   private withReplyContext(taskId: string, message: FeishuOutboundMessage): FeishuOutboundMessage {
     const subscription = this.subscriptions.get(taskId);
     if (!subscription) return message;
@@ -300,6 +314,7 @@ export class FeishuProgressBridge {
   private readonly delivery: FeishuBridgeDelivery;
   private readonly config: Required<Pick<FeishuBridgeConfig, 'progressThrottlePercent'>> & Omit<FeishuBridgeConfig, 'progressThrottlePercent'>;
   private readonly subscriptions = new Map<string, TaskSubscription>();
+  private readonly deliveryQueues = new Map<string, DeliveryQueue>();
 
   constructor(delivery: FeishuBridgeDelivery, config: FeishuBridgeConfig = {}) {
     this.delivery = delivery;
@@ -329,6 +344,7 @@ export class FeishuProgressBridge {
 
   unbindTask(taskId: string): void {
     this.subscriptions.delete(taskId);
+    this.deliveryQueues.delete(taskId);
   }
 
   getTaskBinding(taskId: string): { target: FeishuTaskTarget; firstMessageId?: string; lastMessageId?: string; rootId?: string; threadId?: string; replyToMessageId?: string } | undefined {
@@ -385,97 +401,106 @@ export class FeishuProgressBridge {
   }
 
   async handleTaskUpdate(task: TaskRecord): Promise<void> {
-    if (!this.config.enabled) return;
-    const subscription = this.subscriptions.get(task.id);
-    if (!subscription) return;
+    return this.enqueueDelivery(task.id, async () => {
+      if (!this.config.enabled) return;
+      const subscription = this.subscriptions.get(task.id);
+      if (!subscription) return;
 
-    const link = formatTaskLink(this.config.baseTaskUrl, task.id);
-    const latest = task.events[task.events.length - 1];
-    const stage = formatStage(task);
+      const link = formatTaskLink(this.config.baseTaskUrl, task.id);
+      const latest = task.events[task.events.length - 1];
+      const stage = formatStage(task);
 
-    if (!subscription.ackSent) {
-      subscription.ackSent = true;
+      // Ignore the initial queued snapshot from task creation.
+      // It can be emitted before Feishu binding but delivered after binding due to async scheduling,
+      // which would otherwise produce a stale early ACK ahead of the first real receive-stage update.
+      if (task.status === 'queued' && latest?.type === 'created') {
+        return;
+      }
+
+      if (!subscription.ackSent) {
+        subscription.ackSent = true;
+        subscription.lastProgressSent = task.progress;
+        await this.sendAndTrack(task.id, {
+          kind: 'task-ack',
+          target: subscription.target,
+          taskId: task.id,
+          text: formatAckText(task, link),
+          progress: task.progress,
+          status: task.status,
+          stage,
+          detail: latest?.message,
+          link,
+        });
+        return;
+      }
+
+      if (task.status === 'waiting') {
+        subscription.lastEventType = 'waiting';
+        await this.sendAndTrack(task.id, {
+          kind: 'task-waiting',
+          target: subscription.target,
+          taskId: task.id,
+          text: formatWaitingText(task, link),
+          progress: task.progress,
+          status: task.status,
+          stage,
+          detail: latest?.message,
+          link,
+          decision: task.decision,
+        });
+        return;
+      }
+
+      if (task.status === 'done') {
+        subscription.lastEventType = 'done';
+        await this.sendAndTrack(task.id, {
+          kind: 'task-complete',
+          target: subscription.target,
+          taskId: task.id,
+          text: formatCompleteText(task, link),
+          progress: task.progress,
+          status: task.status,
+          stage,
+          detail: latest?.message,
+          link,
+        });
+        return;
+      }
+
+      if (task.status === 'failed') {
+        subscription.lastEventType = 'failed';
+        await this.sendAndTrack(task.id, {
+          kind: 'task-failed',
+          target: subscription.target,
+          taskId: task.id,
+          text: formatFailedText(task, link),
+          progress: task.progress,
+          status: task.status,
+          stage,
+          detail: latest?.message,
+          link,
+        });
+        return;
+      }
+
+      const delta = task.progress - subscription.lastProgressSent;
+      if (delta < this.config.progressThrottlePercent && latest?.type === 'log') {
+        return;
+      }
+
       subscription.lastProgressSent = task.progress;
+      subscription.lastEventType = latest?.type;
       await this.sendAndTrack(task.id, {
-        kind: 'task-ack',
+        kind: 'task-progress',
         target: subscription.target,
         taskId: task.id,
-        text: formatAckText(task, link),
+        text: formatProgressText(task, link),
         progress: task.progress,
         status: task.status,
         stage,
         detail: latest?.message,
         link,
       });
-      return;
-    }
-
-    if (task.status === 'waiting') {
-      subscription.lastEventType = 'waiting';
-      await this.sendAndTrack(task.id, {
-        kind: 'task-waiting',
-        target: subscription.target,
-        taskId: task.id,
-        text: formatWaitingText(task, link),
-        progress: task.progress,
-        status: task.status,
-        stage,
-        detail: latest?.message,
-        link,
-        decision: task.decision,
-      });
-      return;
-    }
-
-    if (task.status === 'done') {
-      subscription.lastEventType = 'done';
-      await this.sendAndTrack(task.id, {
-        kind: 'task-complete',
-        target: subscription.target,
-        taskId: task.id,
-        text: formatCompleteText(task, link),
-        progress: task.progress,
-        status: task.status,
-        stage,
-        detail: latest?.message,
-        link,
-      });
-      return;
-    }
-
-    if (task.status === 'failed') {
-      subscription.lastEventType = 'failed';
-      await this.sendAndTrack(task.id, {
-        kind: 'task-failed',
-        target: subscription.target,
-        taskId: task.id,
-        text: formatFailedText(task, link),
-        progress: task.progress,
-        status: task.status,
-        stage,
-        detail: latest?.message,
-        link,
-      });
-      return;
-    }
-
-    const delta = task.progress - subscription.lastProgressSent;
-    if (delta < this.config.progressThrottlePercent && latest?.type === 'log') {
-      return;
-    }
-
-    subscription.lastProgressSent = task.progress;
-    subscription.lastEventType = latest?.type;
-    await this.sendAndTrack(task.id, {
-      kind: 'task-progress',
-      target: subscription.target,
-      taskId: task.id,
-      text: formatProgressText(task, link),
-      progress: task.progress,
-      status: task.status,
-      stage,
-      detail: latest?.message,
-      link,
     });
   }
 }

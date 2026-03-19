@@ -1,7 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import type { CrocOffice } from './croc-office.js';
 import type { FeishuProgressBridge } from './feishu-bridge.js';
-import { dispatchChatTask } from './chat-task-dispatcher.js';
+import {
+  isComplexRequest,
+  startComplexFeishuChatTask,
+  type ComplexRequestStartResult,
+} from './feishu-task-start.js';
 
 interface FeishuChallengeBody {
   type?: string;
@@ -36,20 +40,10 @@ interface FeishuEventBody {
   };
 }
 
-interface ComplexRequestStartResult {
-  kind: 'task-start';
-  taskId: string;
-  ack: ReturnType<FeishuProgressBridge['createRequestAck']>;
-  dispatch: {
-    intent: 'pipeline' | 'scan' | 'report' | 'analysis';
-    action: 'started' | 'waiting';
-    reason: string;
-  };
-  suggestedExecution: {
-    type: 'chat-task';
-    nextStage: 'understand' | 'gather';
-    suggestedActions: string[];
-  };
+interface DuplicateResult {
+  ok: true;
+  ignored: true;
+  reason: string;
 }
 
 interface PassThroughResult {
@@ -68,24 +62,21 @@ function parseTextContent(raw: string | undefined): string {
   return '';
 }
 
-function isComplexRequest(text: string): boolean {
-  if (!text) return false;
-  if (text.length >= 24) return true;
-  const keywords = [
-    '分析', '设计', '规划', 'roadmap', '架构', '方案', '拆解', '仓库', '项目', '测试', 'report', 'pipeline', 'scan',
-    'analyze', 'design', 'plan', 'review', 'refactor', 'generate', 'complex', 'task',
-  ];
-  return keywords.some((keyword) => text.toLowerCase().includes(keyword.toLowerCase()));
-}
+function createDedupKey(body: FeishuEventBody): string | undefined {
+  const eventId = body.header?.event_id?.trim();
+  if (eventId) return `event:${eventId}`;
 
-function buildTitle(text: string): string {
-  const trimmed = text.replace(/\s+/g, ' ').trim();
-  if (!trimmed) return 'Feishu complex task';
-  return trimmed.length > 72 ? `${trimmed.slice(0, 69)}...` : trimmed;
+  const messageId = body.event?.message?.message_id?.trim();
+  if (messageId) return `message:${messageId}`;
+
+  return undefined;
 }
 
 export function registerFeishuIngressRoutes(app: FastifyInstance, office: CrocOffice, feishuBridge: FeishuProgressBridge): void {
-  app.post<{ Body: FeishuChallengeBody | FeishuEventBody }>('/api/feishu/webhook', async (req) => {
+  const seenEvents = new Map<string, number>();
+  const dedupTtlMs = 10 * 60 * 1000;
+
+  app.post<{ Body: FeishuChallengeBody | FeishuEventBody }>('/api/feishu/webhook', async (req, reply) => {
     const body = req.body as FeishuChallengeBody | FeishuEventBody;
 
     if (body?.type === 'url_verification' && 'challenge' in body) {
@@ -101,6 +92,26 @@ export function registerFeishuIngressRoutes(app: FastifyInstance, office: CrocOf
       };
     }
 
+    const dedupKey = createDedupKey(body as FeishuEventBody);
+    if (dedupKey) {
+      const now = Date.now();
+      for (const [key, expiresAt] of seenEvents) {
+        if (expiresAt <= now) {
+          seenEvents.delete(key);
+        }
+      }
+      const existing = seenEvents.get(dedupKey);
+      if (existing && existing > now) {
+        const result: DuplicateResult = {
+          ok: true,
+          ignored: true,
+          reason: `Duplicate Feishu delivery ignored: ${dedupKey}`,
+        };
+        return result;
+      }
+      seenEvents.set(dedupKey, now + dedupTtlMs);
+    }
+
     const event = (body as FeishuEventBody).event;
     const message = event?.message;
     const text = parseTextContent(message?.content);
@@ -113,53 +124,25 @@ export function registerFeishuIngressRoutes(app: FastifyInstance, office: CrocOf
       return { ok: true, result };
     }
 
-    const task = office.createChatTask(buildTitle(text));
-    office.bindTaskToFeishu(task.id, {
+    const outcome = await startComplexFeishuChatTask(office, feishuBridge, {
+      text,
       chatId: message?.chat_id || 'unknown-chat',
       requestId: message?.message_id,
       replyToMessageId: message?.message_id,
       rootMessageId: message?.message_id,
-      source: 'feishu',
+      receiveDetail: 'Task accepted from Feishu webhook',
+      understandDetail: 'Understanding request context',
     });
 
-    office.activateTask(task.id);
-    office.markTaskRunning('receive', 'Task accepted from Feishu webhook', 8);
-    office.markTaskRunning('understand', 'Understanding request context', 15);
-    office.activateTask(null);
+    if (!outcome.ok) {
+      return reply.code(502).send({
+        ok: false,
+        taskId: outcome.taskId,
+        error: outcome.error,
+        detail: outcome.detail,
+      });
+    }
 
-    const ack = feishuBridge.createRequestAck(task.id, {
-      title: task.title,
-      target: {
-        chatId: message?.chat_id || 'unknown-chat',
-        requestId: message?.message_id,
-        source: 'feishu',
-      },
-      kind: 'chat',
-      initialProgress: 15,
-      stage: '理解问题',
-      detail: '已收到复杂请求，正在进入任务执行态',
-    });
-
-    const dispatch = await dispatchChatTask(office, task.id, text);
-
-    const result: ComplexRequestStartResult = {
-      kind: 'task-start',
-      taskId: task.id,
-      ack,
-      dispatch: {
-        intent: dispatch.plan.intent,
-        action: dispatch.action,
-        reason: dispatch.plan.reason,
-      },
-      suggestedExecution: {
-        type: 'chat-task',
-        nextStage: dispatch.action === 'waiting' ? 'gather' : 'understand',
-        suggestedActions: dispatch.action === 'waiting'
-          ? ['await-decision', 'resume-chat-task']
-          : ['run-linked-task-flow', 'stream-progress-back-to-feishu'],
-      },
-    };
-
-    return { ok: true, result };
+    return { ok: true, result: outcome.result };
   });
 }

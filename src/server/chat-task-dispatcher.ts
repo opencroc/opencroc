@@ -10,7 +10,7 @@ export interface ChatTaskDispatchResult {
   ok: boolean;
   taskId: string;
   plan: ChatTaskDispatchPlan;
-  action: 'started' | 'waiting';
+  action: 'started';
 }
 
 function normalize(text: string): string {
@@ -51,18 +51,9 @@ export async function dispatchChatTask(office: CrocOffice, taskId: string, text:
   office.markTaskRunning('understand', `Classified request as ${plan.intent}`, 18);
 
   if (plan.intent === 'analysis') {
-    office.markTaskRunning('gather', 'Collecting context and waiting for analysis executor binding', 30);
-    office.waitOnTask('analysis-executor', 'Chat task classified as analysis; waiting for analysis executor or agent binding', 42, {
-      prompt: '当前请求更像分析任务。请选择下一步：',
-      options: [
-        { id: '1', label: '继续作为通用分析任务' },
-        { id: '2', label: '改走 scan' },
-        { id: '3', label: '改走 pipeline' },
-      ],
-      allowFreeText: true,
-    });
-    office.activateTask(null);
-    return { ok: true, taskId, plan, action: 'waiting' };
+    office.completeTaskStage('understand', 'Intent classified: analysis', 24);
+    const startResult = await office.runChatAnalysis(text);
+    return { ok: startResult.ok, taskId, plan, action: 'started' };
   }
 
   office.completeTaskStage('understand', `Intent classified: ${plan.intent}`, 25);

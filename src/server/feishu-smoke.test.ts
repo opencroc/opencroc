@@ -84,5 +84,15 @@ describe('registerFeishuSmokeRoutes', () => {
       ['finalize', 'done'],
     ]);
     expect(send).toHaveBeenCalledTimes(6);
+    const messages = send.mock.calls.map(([message]) => message);
+    expect(messages.map((message) => message.kind)).toEqual([
+      'task-ack',
+      'task-progress',
+      'task-progress',
+      'task-progress',
+      'task-progress',
+      'task-complete',
+    ]);
+    expect(messages.filter((message) => message.kind === 'task-progress').map((message) => message.progress)).toEqual([22, 48, 76, 92]);
   });
 });

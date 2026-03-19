@@ -51,6 +51,25 @@ describe('FeishuApiDelivery', () => {
     expect(String(init.body)).toContain('"reply_in_thread":false');
   });
 
+  it('switches to open_id delivery for direct-message user targets', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ code: 0, msg: 'ok', data: { message_id: 'om_dm_1' } }),
+    }));
+    global.fetch = fetchMock as typeof fetch;
+    const delivery = new FeishuApiDelivery({ enabled: true, mode: 'live', tenantAccessToken: 'tenant_token_xxx' });
+
+    const receipt = await delivery.send({
+      ...sampleMessage,
+      target: { chatId: 'ou_123456', source: 'feishu' },
+    });
+
+    expect(receipt).toEqual({ messageId: 'om_dm_1', rootId: undefined, threadId: undefined });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/im/v1/messages?receive_id_type=open_id');
+    expect(String(init.body)).toContain('"receive_id":"ou_123456"');
+  });
+
   it('sends interactive card messages when card payload exists', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
